@@ -18,23 +18,12 @@ A Streamlit-based chatbot assistant for my portfolio, powered by Alfred Pennywor
 ## Requirements
 
 * Python 3.8+
-* Streamlit 1.20+
-* Firebase Admin SDK
-* Groq API Key
-* Other dependencies:
-	+ `streamlit-chat`
-	+ `google-cloud-firestore`
-	+ `requests`
+* See `requirements.txt` for dependencies
 
 ## Getting Started
 
 1. Clone the repository: `git clone https://github.com/UPavankumar/Portfolio_Assistant.git`
-2. Install dependencies:
-	* `pip install streamlit`
-	* `pip install streamlit-chat`
-	* `pip install google-cloud-firestore`
-	* `pip install firebase-admin`
-	* `pip install requests`
+2. Install dependencies: `pip install -r requirements.txt`
 3. Set up environment variables:
 	* Create a `.env` file with the following variables:
 		+ `GROQ_API_KEY=YOUR_GROQ_API_KEY`
