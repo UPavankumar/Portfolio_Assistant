@@ -8,7 +8,7 @@ client = Groq(api_key=api_key)
 st.title("Chat with Alfred")
 
 if 'conversation' not in st.session_state:
-    st.session_state.conversation = [{"role": "assistant", "content": "Hello! How can I assist you today?"}]
+    st.session_state.conversation = [{"role": "assistant", "content": "Hello! May i know Your Name?"}]
 
 resume_knowledge_base = """
 **Pavan Kumar's Resume Knowledge Base**
@@ -61,10 +61,11 @@ resume_knowledge_base = """
 def get_response(user_input):
     try:
         system_prompt = f"""
-You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
-If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track. in next 2-3 chats
+You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with British charm and professionalism, providing direct yet engaging answers based on the knowledge base.
+If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track. Additionally, if there are any spelling mistakes, kindly acknowledge them and say, "I believe you meant '{correct_spelling}'" before continuing with the solution.
 Knowledge Base: {resume_knowledge_base}
 """
+
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
