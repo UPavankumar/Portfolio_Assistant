@@ -74,7 +74,7 @@ def correct_spelling(input_text):
             return f"I believe you meant '{corrected_word}'."
     return None
 
-# Get bot response
+# Get bot response with specific handling for 'tell me more'
 def get_response(user_input):
     try:
         # Check for spelling mistakes
@@ -82,29 +82,32 @@ def get_response(user_input):
         if correction:
             response = f"Apologies, Sir. {correction} Now, let's proceed with your query."
         else:
-            system_prompt = f"""
-            You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with British charm and professionalism, providing direct yet engaging answers based on the knowledge base.
-            If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track.
-            Knowledge Base: {resume_knowledge_base}
-            """
+            if "tell me more" in user_input.lower():
+                response = "Certainly! Here’s more information about my qualifications and experience: I have worked extensively with machine learning models, including XGBoost and TensorFlow, and I have built interactive dashboards using Power BI for business analytics. I aim to expand my career in the AI/ML field."
+            else:
+                system_prompt = f"""
+                You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with British charm and professionalism, providing direct yet engaging answers based on the knowledge base.
+                If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track.
+                Knowledge Base: {resume_knowledge_base}
+                """
 
-            completion = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    *st.session_state.conversation,
-                    {"role": "user", "content": user_input}
-                ],
-                temperature=0.85,
-                max_tokens=512,
-                top_p=0.9,
-                stream=True,
-                stop=None,
-            )
+                completion = client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        *st.session_state.conversation,
+                        {"role": "user", "content": user_input}
+                    ],
+                    temperature=0.85,
+                    max_tokens=512,
+                    top_p=0.9,
+                    stream=True,
+                    stop=None,
+                )
 
-            response = ""
-            for chunk in completion:
-                response += chunk.choices[0].delta.content or ""
+                response = ""
+                for chunk in completion:
+                    response += chunk.choices[0].delta.content or ""
 
         return response
     except Exception as e:
