@@ -1,19 +1,14 @@
 import streamlit as st
 from groq import Groq
-from spellchecker import SpellChecker
 
-# Initialize SpellChecker
-spell = SpellChecker()
-
-# Initialize Groq client
 api_key = st.secrets["GROQ_API_KEY"]
+
 client = Groq(api_key=api_key)
 
-# Streamlit setup
 st.title("Chat with Alfred")
 
 if 'conversation' not in st.session_state:
-    st.session_state.conversation = [{"role": "assistant", "content": "Hello! May I know Your Name?"}]
+    st.session_state.conversation = [{"role": "assistant", "content": "Hello! How can I assist you today?"}]
 
 resume_knowledge_base = """
 **Pavan Kumar's Resume Knowledge Base**
@@ -23,7 +18,7 @@ resume_knowledge_base = """
 - Location: Bengaluru, India
 - Contact: +91-8050737339, u.pavankumar2002@gmail.com
 - LinkedIn: linkedin.com/in/u-pavankumar
-- Portfolio: portfolio-u-pavan-kumar.web.app
+- Portfolio: portfolio-u-pavankumar.web.app
 - Relocation: Fully flexible for relocation nationwide (India) no assistance required.
 - Work Preference: Open to remote, hybrid, or on-site roles.
 - Availability: Available to start immediately .
@@ -63,57 +58,30 @@ resume_knowledge_base = """
 - Data Analyst
 """
 
-# Spell correction function
-def correct_spelling(input_text):
-    words = input_text.split()
-    misspelled = spell.unknown(words)
-
-    # Ignore proper names (like Pavan, Pavithra)
-    for word in words:
-        if word.istitle() and len(word) > 1:
-            continue  # Skip capitalization errors in names
-
-    if misspelled:
-        for word in misspelled:
-            corrected_word = spell.correction(word)
-            return f"I believe you meant '{corrected_word}'."
-    return None
-
-# Get bot response with specific handling for 'tell me more'
 def get_response(user_input):
     try:
-        # Check for spelling mistakes
-        correction = correct_spelling(user_input)
-        if correction:
-            response = f"Apologies, Sir. {correction} Now, let's proceed with your query."
-        else:
-            if "tell me more" in user_input.lower():
-                response = "Certainly! Here’s more information about my qualifications and experience: I have worked extensively with machine learning models, including XGBoost and TensorFlow, and I have built interactive dashboards using Power BI for business analytics. I aim to expand my career in the AI/ML field."
-            else:
-                system_prompt = f"""
-                You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with British charm and professionalism, providing direct yet engaging answers based on the knowledge base.
-                If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track.
-                Knowledge Base: {resume_knowledge_base}
-                """
+        system_prompt = f"""
+You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
+If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track. in next 2-3 chats
+Knowledge Base: {resume_knowledge_base}
+"""
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                *st.session_state.conversation,
+                {"role": "user", "content": user_input}
+            ],
+            temperature=0.85,
+            max_tokens=512,
+            top_p=0.9,
+            stream=True,
+            stop=None,
+        )
 
-                completion = client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        *st.session_state.conversation,
-                        {"role": "user", "content": user_input}
-                    ],
-                    temperature=0.85,
-                    max_tokens=512,
-                    top_p=0.9,
-                    stream=True,
-                    stop=None,
-                )
-
-                response = ""
-                for chunk in completion:
-                    response += chunk.choices[0].delta.content or ""
-
+        response = ""
+        for chunk in completion:
+            response += chunk.choices[0].delta.content or ""
         return response
     except Exception as e:
         return f"Apologies, Sir. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
@@ -125,7 +93,6 @@ for message in st.session_state.conversation:
     else:
         st.markdown(f"**You**: {message['content']}")
 
-# Form for user input
 with st.form(key="chat_form"):
     user_input = st.text_input("Your message:")
     submit_button = st.form_submit_button(label='Send')
