@@ -68,6 +68,11 @@ def correct_spelling(input_text):
     words = input_text.split()
     misspelled = spell.unknown(words)
 
+    # Ignore proper names (like Pavan, Pavithra)
+    for word in words:
+        if word.istitle() and len(word) > 1:
+            continue  # Skip capitalization errors in names
+
     if misspelled:
         for word in misspelled:
             corrected_word = spell.correction(word)
