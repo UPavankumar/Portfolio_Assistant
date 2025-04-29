@@ -1,43 +1,93 @@
 import streamlit as st
 from groq import Groq
-from datetime import datetime
 
-# Load API key from secrets
-api_key = st.secrets["GROQ_API_KEY"]
+# Load API key
+api_key = "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"
+
+# Initialize Groq client
 client = Groq(api_key=api_key)
 
+# Set page title and layout
 st.set_page_config(page_title="Chat with Alfred", layout="centered", initial_sidebar_state="collapsed")
 st.title("Chat with Alfred")
 
-# Initialize chat history
-if 'conversation' not in st.session_state:
-    st.session_state.conversation = [{
-        "role": "assistant",
-        "content": "Good day! I’m Alfred, Mr. Pavan Kumar’s personal assistant. May I have the pleasure of knowing your name?",
-        "timestamp": datetime.now().strftime("%I:%M %p")
-    }]
+# Resume knowledge base
+resume_knowledge_base = """
+**Pavan Kumar's Resume Knowledge Base**
 
-# Resume knowledge base (replace with actual content)
-resume_knowledge_base = """Pavan Kumar is an aspiring Data Analyst with expertise in Python, SQL, Power BI..."""
+**Personal Information**:
+- Name: Pavan Kumar
+- Location: Bengaluru, India
+- Contact: +91-8050737339, u.pavankumar2002@gmail.com
+- LinkedIn: linkedin.com/in/u-pavankumar
+- Portfolio: portfolio-u-pavankumar.web.app
+- Relocation: Fully flexible for relocation nationwide (India) no assistance required.
+- Work Preference: Open to remote, hybrid, or on-site roles.
+- Availability: Available to start immediately .
 
-# Function to get Groq response
+**Professional Summary**:
+- Aspiring Data Scientist with a strong foundation in data analysis, machine learning, and data visualization. Proficient in Python, SQL, Power BI, and eager to apply skills in real-world projects.
+
+**Skills**:
+- Programming: Python, SQL, R
+- Machine Learning: Scikit-learn, TensorFlow, PyTorch
+- Data Visualization: Power BI, Tableau
+- Data Analysis: Pandas, NumPy, Matplotlib, Seaborn
+- AI/ML: Natural Language Processing, Computer Vision
+
+**Experience**:
+- Spire Technologies, Bengaluru (Data Analyst Consultant)
+  - Built Python/SQL pipelines for 100K+ skill datasets.
+  - Designed Power BI dashboards, reducing reporting time.
+
+**Education**:
+- B.E. in Computer Science (Data Science), MVJ College of Engineering, Bengaluru
+
+**Projects**:
+- E-commerce Churn Prediction: Built an XGBoost model (85% precision) and automated feature engineering.
+- Discord Bot for Twitter Verification: Developed with Python/Discord API and robust exception handling.
+
+**Certifications**:
+- Google Data Analytics (Coursera)
+- Google Project Management (Coursera)
+- Smart Contracts (SUNY)
+
+**Career Aspirations**:
+- Data Scientist
+- Machine Learning Engineer
+- AI/ML Engineer
+- Business Intelligence Developer
+- Data Analyst
+"""
+
+# Initialize session state
+if 'messages' not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "Good day! I’m Alfred, Mr. Pavan Kumar’s personal assistant. May I have the pleasure of knowing your name?"}]
+
+# Function to get response from Groq API
 def get_response(user_input):
     try:
         system_prompt = f"""
-You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism.
+You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
+If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track in the next 2-3 chats.
+If the user repeats the same input (e.g., 'hello'), offer a different response or ask a new question to avoid loops.
 Knowledge Base: {resume_knowledge_base}
 """
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        for msg in st.session_state.messages:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": user_input})
+
         completion = client.chat.completions.create(
-            model="llama-3-1-8b",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                *[{ "role": msg["role"], "content": msg["content"] } for msg in st.session_state.conversation],
-                {"role": "user", "content": user_input}
-            ],
+            model="llama-3.1-8b-instant",
+            messages=messages,
             temperature=0.85,
             max_tokens=512,
             top_p=0.9,
             stream=True,
+            stop=None,
         )
 
         response = ""
@@ -45,103 +95,55 @@ Knowledge Base: {resume_knowledge_base}
             response += chunk.choices[0].delta.content or ""
         return response
     except Exception as e:
-        return f"Apologies, Sir/Madam. We encountered an issue: {str(e)}"
+        return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Custom CSS for layout
-st.markdown("""
-<style>
-.chat-container {
-    max-width: 700px;
-    margin: auto;
-}
-.chat-history {
-    height: 60vh;
-    overflow-y: auto;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    background: #1e1e1e;
-    color: white;
-}
-.chat-message {
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 10px;
-}
-.chat-message.user {
-    background-color: #2a9d8f;
-    text-align: right;
-    margin-left: auto;
-    width: fit-content;
-}
-.chat-message.assistant {
-    background-color: #264653;
-    text-align: left;
-    margin-right: auto;
-    width: fit-content;
-}
-.timestamp {
-    font-size: 0.75em;
-    color: #cccccc;
-    display: block;
-    margin-top: 5px;
-    text-align: right;
-}
-</style>
-""", unsafe_allow_html=True)
+# Display all messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(f'**{"Alfred" if message["role"] == "assistant" else "You"}:** {message["content"]}')
 
-# Layout container
-with st.container():
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# Get user input
+if user_input := st.chat_input("Your message"):
+    # Add user message to session state
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    # Display user message
+    with st.chat_message("user"):
+        st.markdown(f'**You:** {user_input}')
+    # Get and display assistant response
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = get_response(user_input)
+            st.markdown(f'**Alfred:** {response}')
+    # Add assistant response to session state
+    st.session_state.messages.append({"role": "assistant", "content": response})
 
-    # Chat History
-    st.markdown('<div class="chat-history">', unsafe_allow_html=True)
-    for msg in st.session_state.conversation:
-        role = msg["role"]
-        content = msg["content"]
-        timestamp = msg["timestamp"]
-        css_class = "user" if role == "user" else "assistant"
-        sender = "You" if role == "user" else "Alfred"
-        st.markdown(f"""
-        <div class="chat-message {css_class}">
-            <b>{sender}:</b> {content}
-            <span class="timestamp">{timestamp}</span>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)  # end chat-history
-
-    # Input form
-    with st.form("chat_form", clear_on_submit=True):
-        user_input = st.text_input("Message", placeholder="Type your message here", label_visibility="collapsed")
-        submitted = st.form_submit_button("Send")
-
-    st.markdown('</div>', unsafe_allow_html=True)  # end chat-container
-
-# Handle input
-if submitted and user_input.strip():
-    now = datetime.now().strftime("%I:%M %p")
-
-    # Prevent repeated messages
-    last_user_msgs = [msg for msg in st.session_state.conversation if msg["role"] == "user"]
-    if last_user_msgs and last_user_msgs[-1]["content"] == user_input:
-        st.session_state.conversation.append({
-            "role": "assistant",
-            "content": "We appear to be circling the same topic, Sir/Madam. Might you wish to inquire about something else?",
-            "timestamp": now
-        })
-    else:
-        # Add user message
-        st.session_state.conversation.append({
-            "role": "user",
-            "content": user_input,
-            "timestamp": now
-        })
-        # Get AI response
-        ai_response = get_response(user_input)
-        st.session_state.conversation.append({
-            "role": "assistant",
-            "content": ai_response,
-            "timestamp": datetime.now().strftime("%I:%M %p")
-        })
-
-    st.rerun()
+# Custom CSS with stricter containment
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #343a40 !important;
+        color: #ffffff;
+        font-family: 'Arial', sans-serif;
+        display: flex;
+        flex-direction: column;
+        height: 90vh;
+        justify-content: center;
+    }
+    .stApp {
+        background-color: #343a40 !important;
+    }
+    /* Style assistant messages */
+    div[data-testid="stChatMessage"][data-testid="assistant"] {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    /* Style user messages */
+    div[data-testid="stChatMessage"][data-testid="user"] {
+        background-color: #6c757d;
+        text-align: right;
+        margin-left: 20%;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
