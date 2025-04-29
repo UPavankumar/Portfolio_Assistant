@@ -69,6 +69,7 @@ def get_response(user_input):
         system_prompt = f"""
 You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
 If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track in the next 2-3 chats.
+If the user repeats the same input (e.g., 'hello'), offer a different response or ask a new question to avoid loops.
 Knowledge Base: {resume_knowledge_base}
 """
         completion = client.chat.completions.create(
@@ -92,7 +93,7 @@ Knowledge Base: {resume_knowledge_base}
     except Exception as e:
         return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Custom CSS to match portfolio style
+# Custom CSS to match portfolio style and fix layout
 st.markdown(
     """
     <style>
@@ -127,6 +128,7 @@ st.markdown(
         border-radius: 5px;
         background-color: #e9ecef;
         word-wrap: break-word;
+        max-width: 80%;
     }
     .chat-message.user {
         background-color: #007bff;
@@ -141,6 +143,8 @@ st.markdown(
         padding: 15px;
         border-top: 1px solid #dee2e6;
         z-index: 100;
+        display: flex;
+        align-items: center;
     }
     .stTextInput > div > div > input {
         background-color: #ffffff;
@@ -148,7 +152,7 @@ st.markdown(
         border: 1px solid #ced4da;
         border-radius: 5px;
         padding: 10px;
-        width: 100%;
+        flex: 1;
         box-shadow: none;
     }
     .stButton > button {
@@ -217,9 +221,14 @@ with st.container():
 # Handle form submission
 if submit_button:
     if user_input.strip():
-        st.session_state.conversation.append({"role": "user", "content": user_input})
-        response = get_response(user_input)
-        st.session_state.conversation.append({"role": "assistant", "content": response})
+        # Check for repetition and adjust response if needed
+        last_user_input = st.session_state.conversation[-1]["content"] if len(st.session_state.conversation) > 1 and st.session_state.conversation[-1]["role"] == "user" else ""
+        if last_user_input == user_input:
+            st.session_state.conversation.append({"role": "assistant", "content": "It seems we’re repeating ourselves, Sir/Madam. Perhaps you’d like to ask about Mr. Pavan Kumar’s skills or projects?"})
+        else:
+            st.session_state.conversation.append({"role": "user", "content": user_input})
+            response = get_response(user_input)
+            st.session_state.conversation.append({"role": "assistant", "content": response})
         st.rerun()
     else:
         st.warning("Please enter a message to continue the conversation.")
