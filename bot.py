@@ -7,7 +7,8 @@ api_key = st.secrets["GROQ_API_KEY"]
 # Initialize Groq client
 client = Groq(api_key=api_key)
 
-# Set page title
+# Set page title and force light theme
+st.set_page_config(page_title="Chat with Alfred", layout="centered", initial_sidebar_state="collapsed")
 st.title("Chat with Alfred")
 
 # Initialize conversation in session state with a name request
@@ -98,12 +99,16 @@ st.markdown(
     """
     <style>
     .main {
+        background-color: #ffffff !important;
+        color: #212529;
+        font-family: 'Arial', sans-serif;
         display: flex;
         flex-direction: column;
         height: 90vh;
-        background-color: #ffffff;
-        color: #212529;
-        font-family: 'Arial', sans-serif;
+        justify-content: center;
+    }
+    .stApp {
+        background-color: #ffffff !important;
     }
     .chat-container {
         max-width: 600px;
@@ -112,6 +117,9 @@ st.markdown(
         background-color: #f8f9fa;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     .chat-history {
         flex: 1;
@@ -121,6 +129,7 @@ st.markdown(
         background-color: #ffffff;
         border: 1px solid #dee2e6;
         border-radius: 5px;
+        margin-bottom: 15px;
     }
     .chat-message {
         margin: 10px 0;
