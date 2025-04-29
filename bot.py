@@ -94,7 +94,7 @@ Knowledge Base: {resume_knowledge_base}
     except Exception as e:
         return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Custom CSS to match the requested style
+# Custom CSS to fix layout and maintain style
 st.markdown(
     """
     <style>
@@ -199,35 +199,33 @@ st.markdown(
 with st.container():
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     # Chat history container
-    with st.container():
-        st.markdown('<div class="chat-history">', unsafe_allow_html=True)
-        for message in st.session_state.conversation:
-            if message["role"] == "assistant":
-                st.markdown(
-                    f'<div class="chat-message"><b>Alfred:</b> {message["content"]}</div>',
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    f'<div class="chat-message user"><b>You:</b> {message["content"]}</div>',
-                    unsafe_allow_html=True
-                )
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="chat-history">', unsafe_allow_html=True)
+    for message in st.session_state.conversation:
+        if message["role"] == "assistant":
+            st.markdown(
+                f'<div class="chat-message"><b>Alfred:</b> {message["content"]}</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f'<div class="chat-message user"><b>You:</b> {message["content"]}</div>',
+                unsafe_allow_html=True
+            )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Input form container (fixed at bottom)
-    with st.container():
-        st.markdown('<div class="input-container">', unsafe_allow_html=True)
-        with st.form(key="chat_form", clear_on_submit=True):
-            col1, col2 = st.columns([5, 1])
-            with col1:
-                user_input = st.text_input(
-                    "Your message:",
-                    placeholder="Type your message here...",
-                    label_visibility="collapsed"
-                )
-            with col2:
-                submit_button = st.form_submit_button(label="Send")
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+    with st.form(key="chat_form", clear_on_submit=True):
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            user_input = st.text_input(
+                "Your message:",
+                placeholder="Type your message here...",
+                label_visibility="collapsed"
+            )
+        with col2:
+            submit_button = st.form_submit_button(label="Send")
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Handle form submission
