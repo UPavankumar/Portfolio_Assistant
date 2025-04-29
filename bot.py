@@ -130,6 +130,7 @@ st.markdown(
         border: 1px solid #dee2e6;
         border-radius: 5px;
         margin-bottom: 15px;
+        box-sizing: border-box;
     }
     .chat-message {
         margin: 10px 0;
@@ -138,9 +139,10 @@ st.markdown(
         background-color: #e9ecef;
         word-wrap: break-word;
         max-width: 80%;
+        line-height: 1.5;
     }
     .chat-message.user {
-        background-color: #007bff;
+        background-color: #6c757d;  /* Grey for user messages */
         color: #ffffff;
         text-align: right;
         margin-left: 20%;
