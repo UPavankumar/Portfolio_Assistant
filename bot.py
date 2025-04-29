@@ -117,14 +117,13 @@ st.markdown(
         border: 2px solid #ffffff;  /* White border for container */
         border-radius: 8px;
         background-color: transparent;  /* Transparent inside */
-        height: 100%;
         display: flex;
         flex-direction: column;
+        height: 80vh;  /* Fixed height to control layout */
     }
     .chat-history {
         flex: 1;
         overflow-y: auto;
-        max-height: 65vh;
         padding: 15px;
         background-color: transparent;  /* Transparent chat history */
         border: 1px solid #ffffff;  /* White border for chat history */
@@ -198,22 +197,24 @@ st.markdown(
 # Main container for layout
 with st.container():
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    # Chat history container
+    # Chat history
     st.markdown('<div class="chat-history">', unsafe_allow_html=True)
-    for message in st.session_state.conversation:
-        if message["role"] == "assistant":
-            st.markdown(
-                f'<div class="chat-message"><b>Alfred:</b> {message["content"]}</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                f'<div class="chat-message user"><b>You:</b> {message["content"]}</div>',
-                unsafe_allow_html=True
-            )
+    # Only render messages if they exist, avoiding empty divs
+    if st.session_state.conversation:
+        for message in st.session_state.conversation:
+            if message["role"] == "assistant":
+                st.markdown(
+                    f'<div class="chat-message"><b>Alfred:</b> {message["content"]}</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f'<div class="chat-message user"><b>You:</b> {message["content"]}</div>',
+                    unsafe_allow_html=True
+                )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input form container (fixed at bottom)
+    # Input form (fixed at bottom)
     st.markdown('<div class="input-container">', unsafe_allow_html=True)
     with st.form(key="chat_form", clear_on_submit=True):
         col1, col2 = st.columns([5, 1])
