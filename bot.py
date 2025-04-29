@@ -10,7 +10,7 @@ client = Groq(api_key=api_key)
 # Set page title
 st.title("Chat with Alfred")
 
-# Initialize conversation in session state
+# Initialize conversation in session state with a name request
 if 'conversation' not in st.session_state:
     st.session_state.conversation = [{"role": "assistant", "content": "Good day! I’m Alfred, Mr. Pavan Kumar’s personal assistant. May I have the pleasure of knowing your name?"}]
 
@@ -92,65 +92,78 @@ Knowledge Base: {resume_knowledge_base}
     except Exception as e:
         return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Custom CSS for improved styling and fixed input box
+# Custom CSS to match portfolio style
 st.markdown(
     """
     <style>
     .main {
         display: flex;
         flex-direction: column;
-        height: 90vh;  /* Full viewport height */
-        background-color: #1e1e2f;  /* Dark background for better contrast */
-        color: #d4d4d4;  /* Light text for readability */
+        height: 90vh;
+        background-color: #1a1a2e;
+        color: #e6e6e6;
         font-family: 'Arial', sans-serif;
+        justify-content: center;
+    }
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #16213e;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
     .chat-history {
         flex: 1;
         overflow-y: auto;
-        padding: 20px;
-        margin-bottom: 10px;
+        max-height: 70vh;
+        padding: 15px;
     }
     .chat-message {
-        margin-bottom: 15px;
-        padding: 10px;
+        margin: 10px 0;
+        padding: 12px;
         border-radius: 8px;
-        background-color: #2a2a40;  /* Slightly lighter background for messages */
+        background-color: #0f3460;
         word-wrap: break-word;
     }
     .chat-message.user {
-        background-color: #3a3a5a;  /* Different background for user messages */
+        background-color: #e94560;
         text-align: right;
+        margin-left: 20%;
     }
     .input-container {
         position: sticky;
         bottom: 0;
-        background-color: #1e1e2f;
+        background-color: #16213e;
         padding: 15px;
-        border-top: 1px solid #444;
+        border-top: 1px solid #2a4066;
         z-index: 100;
     }
     .stTextInput > div > div > input {
-        background-color: #2a2a40;
-        color: #d4d4d4;
-        border: 1px solid #555;
+        background-color: #0f3460;
+        color: #e6e6e6;
+        border: 1px solid #2a4066;
         border-radius: 5px;
         padding: 10px;
+        width: 100%;
     }
     .stButton > button {
-        background-color: #4a4a7a;
-        color: #d4d4d4;
+        background-color: #e94560;
+        color: #e6e6e6;
         border: none;
         border-radius: 5px;
         padding: 10px 20px;
         margin-left: 10px;
     }
     .stButton > button:hover {
-        background-color: #5a5a9a;
+        background-color: #ff6b6b;
     }
     h1 {
-        color: #d4d4d4;
+        color: #e6e6e6;
         text-align: center;
-        padding: 10px 0;
+        font-size: 2.5em;
+        margin-bottom: 20px;
+        font-family: 'Arial', sans-serif;
     }
     </style>
     """,
@@ -159,6 +172,7 @@ st.markdown(
 
 # Main container for layout
 with st.container():
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     # Chat history container
     with st.container():
         st.markdown('<div class="chat-history">', unsafe_allow_html=True)
@@ -189,6 +203,7 @@ with st.container():
             with col2:
                 submit_button = st.form_submit_button(label="Send")
         st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Handle form submission
 if submit_button:
