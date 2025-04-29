@@ -7,7 +7,7 @@ api_key = st.secrets["GROQ_API_KEY"]
 # Initialize Groq client
 client = Groq(api_key=api_key)
 
-# Set page title and force light theme
+# Set page title and force layout
 st.set_page_config(page_title="Chat with Alfred", layout="centered", initial_sidebar_state="collapsed")
 st.title("Chat with Alfred")
 
@@ -94,13 +94,13 @@ Knowledge Base: {resume_knowledge_base}
     except Exception as e:
         return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Custom CSS to match portfolio style and fix layout
+# Custom CSS to match the requested style
 st.markdown(
     """
     <style>
     .main {
-        background-color: #ffffff !important;
-        color: #212529;
+        background-color: #343a40 !important;  /* High-quality dark grey */
+        color: #ffffff;
         font-family: 'Arial', sans-serif;
         display: flex;
         flex-direction: column;
@@ -108,15 +108,15 @@ st.markdown(
         justify-content: center;
     }
     .stApp {
-        background-color: #ffffff !important;
+        background-color: #343a40 !important;
     }
     .chat-container {
         max-width: 600px;
         margin: 0 auto;
         padding: 20px;
-        background-color: #f8f9fa;
+        border: 2px solid #ffffff;  /* White border for container */
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background-color: transparent;  /* Transparent inside */
         height: 100%;
         display: flex;
         flex-direction: column;
@@ -126,8 +126,8 @@ st.markdown(
         overflow-y: auto;
         max-height: 65vh;
         padding: 15px;
-        background-color: #ffffff;
-        border: 1px solid #dee2e6;
+        background-color: transparent;  /* Transparent chat history */
+        border: 1px solid #ffffff;  /* White border for chat history */
         border-radius: 5px;
         margin-bottom: 15px;
         box-sizing: border-box;
@@ -136,31 +136,32 @@ st.markdown(
         margin: 10px 0;
         padding: 10px;
         border-radius: 5px;
-        background-color: #e9ecef;
+        background-color: rgba(255, 255, 255, 0.1);  /* Slight white tint for messages */
         word-wrap: break-word;
         max-width: 80%;
         line-height: 1.5;
+        color: #ffffff;  /* White text */
     }
     .chat-message.user {
         background-color: #6c757d;  /* Grey for user messages */
-        color: #ffffff;
+        color: #ffffff;  /* White text */
         text-align: right;
         margin-left: 20%;
     }
     .input-container {
         position: sticky;
         bottom: 0;
-        background-color: #f8f9fa;
+        background-color: transparent;  /* Transparent input area */
         padding: 15px;
-        border-top: 1px solid #dee2e6;
+        border-top: 1px solid #ffffff;  /* White border for input area */
         z-index: 100;
         display: flex;
         align-items: center;
     }
     .stTextInput > div > div > input {
-        background-color: #ffffff;
-        color: #212529;
-        border: 1px solid #ced4da;
+        background-color: transparent;
+        color: #ffffff;
+        border: 1px solid #ffffff;
         border-radius: 5px;
         padding: 10px;
         flex: 1;
@@ -179,7 +180,7 @@ st.markdown(
         background-color: #0056b3;
     }
     h1 {
-        color: #212529;
+        color: #ffffff;  /* White text for title */
         text-align: center;
         font-size: 2em;
         margin-bottom: 20px;
