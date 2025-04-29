@@ -100,70 +100,79 @@ st.markdown(
         display: flex;
         flex-direction: column;
         height: 90vh;
-        background-color: #1a1a2e;
-        color: #e6e6e6;
+        background-color: #ffffff;
+        color: #212529;
         font-family: 'Arial', sans-serif;
-        justify-content: center;
     }
     .chat-container {
-        max-width: 800px;
+        max-width: 600px;
         margin: 0 auto;
         padding: 20px;
-        background-color: #16213e;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .chat-history {
         flex: 1;
         overflow-y: auto;
-        max-height: 70vh;
+        max-height: 65vh;
         padding: 15px;
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
     }
     .chat-message {
         margin: 10px 0;
-        padding: 12px;
-        border-radius: 8px;
-        background-color: #0f3460;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #e9ecef;
         word-wrap: break-word;
     }
     .chat-message.user {
-        background-color: #e94560;
+        background-color: #007bff;
+        color: #ffffff;
         text-align: right;
         margin-left: 20%;
     }
     .input-container {
         position: sticky;
         bottom: 0;
-        background-color: #16213e;
+        background-color: #f8f9fa;
         padding: 15px;
-        border-top: 1px solid #2a4066;
+        border-top: 1px solid #dee2e6;
         z-index: 100;
     }
     .stTextInput > div > div > input {
-        background-color: #0f3460;
-        color: #e6e6e6;
-        border: 1px solid #2a4066;
+        background-color: #ffffff;
+        color: #212529;
+        border: 1px solid #ced4da;
         border-radius: 5px;
         padding: 10px;
         width: 100%;
+        box-shadow: none;
     }
     .stButton > button {
-        background-color: #e94560;
-        color: #e6e6e6;
+        background-color: #007bff;
+        color: #ffffff;
         border: none;
         border-radius: 5px;
         padding: 10px 20px;
         margin-left: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .stButton > button:hover {
-        background-color: #ff6b6b;
+        background-color: #0056b3;
     }
     h1 {
-        color: #e6e6e6;
+        color: #212529;
         text-align: center;
-        font-size: 2.5em;
+        font-size: 2em;
         margin-bottom: 20px;
         font-family: 'Arial', sans-serif;
+    }
+    .stWarning {
+        color: #dc3545;
+        text-align: center;
     }
     </style>
     """,
