@@ -99,7 +99,7 @@ st.markdown(
     """
     <style>
     .main {
-        background-color: #343a40 !important;  /* High-quality dark grey */
+        background-color: #343a40 !important;
         color: #ffffff;
         font-family: 'Arial', sans-serif;
         display: flex;
@@ -114,51 +114,51 @@ st.markdown(
         max-width: 600px;
         margin: 0 auto;
         padding: 20px;
-        border: 2px solid #ffffff;  /* White border for container */
+        border: 2px solid #ffffff;
         border-radius: 8px;
-        background-color: transparent;  /* Transparent inside */
+        background-color: transparent;
         display: flex;
         flex-direction: column;
-        height: 80vh;  /* Fixed height to control layout */
-        position: relative;  /* Ensure proper positioning */
+        height: 80vh;
+        position: relative;
     }
     .chat-history {
         flex: 1;
-        overflow-y: auto;  /* Ensure scrolling if content overflows */
+        overflow-y: auto;
         padding: 15px;
-        background-color: transparent;  /* Transparent chat history */
-        border: 1px solid #ffffff;  /* White border for chat history */
+        background-color: transparent;
+        border: 1px solid #ffffff;
         border-radius: 5px;
         margin-bottom: 15px;
         box-sizing: border-box;
-        width: 100%;  /* Ensure full width */
+        width: 100%;
     }
     .chat-message {
         margin: 10px 0;
         padding: 10px;
         border-radius: 5px;
-        background-color: rgba(255, 255, 255, 0.1);  /* Slight white tint for messages */
+        background-color: rgba(255, 255, 255, 0.1);
         word-wrap: break-word;
         max-width: 80%;
         line-height: 1.5;
-        color: #ffffff;  /* White text */
+        color: #ffffff;
     }
     .chat-message.user {
-        background-color: #6c757d;  /* Grey for user messages */
-        color: #ffffff;  /* White text */
+        background-color: #6c757d;
+        color: #ffffff;
         text-align: right;
         margin-left: 20%;
     }
     .input-container {
         position: sticky;
         bottom: 0;
-        background-color: transparent;  /* Transparent input area */
+        background-color: transparent;
         padding: 15px;
-        border-top: 1px solid #ffffff;  /* White border for input area */
+        border-top: 1px solid #ffffff;
         z-index: 100;
         display: flex;
         align-items: center;
-        width: 100%;  /* Ensure full width */
+        width: 100%;
     }
     .stTextInput > div > div > input {
         background-color: transparent;
@@ -182,7 +182,7 @@ st.markdown(
         background-color: #0056b3;
     }
     h1 {
-        color: #ffffff;  /* White text for title */
+        color: #ffffff;
         text-align: center;
         font-size: 2em;
         margin-bottom: 20px;
@@ -200,9 +200,9 @@ st.markdown(
 # Main container for layout
 with st.container():
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+
     # Chat history
     st.markdown('<div class="chat-history">', unsafe_allow_html=True)
-    # Only render messages if they exist
     if st.session_state.conversation:
         for message in st.session_state.conversation:
             if message["role"] == "assistant":
@@ -215,9 +215,9 @@ with st.container():
                     f'<div class="chat-message user"><b>You:</b> {message["content"]}</div>',
                     unsafe_allow_html=True
                 )
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)  # Close chat-history
 
-    # Input form (fixed at bottom)
+    # Input area
     st.markdown('<div class="input-container">', unsafe_allow_html=True)
     with st.form(key="chat_form", clear_on_submit=True):
         col1, col2 = st.columns([5, 1])
@@ -229,13 +229,12 @@ with st.container():
             )
         with col2:
             submit_button = st.form_submit_button(label="Send")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)  # Close input-container
+    st.markdown('</div>', unsafe_allow_html=True)  # Close chat-container
 
 # Handle form submission
 if submit_button:
     if user_input.strip():
-        # Check for repetition and adjust response if needed
         last_user_input = st.session_state.conversation[-1]["content"] if len(st.session_state.conversation) > 1 and st.session_state.conversation[-1]["role"] == "user" else ""
         if last_user_input == user_input:
             st.session_state.conversation.append({"role": "assistant", "content": "It seems we’re repeating ourselves, Sir/Madam. Perhaps you’d like to ask about Mr. Pavan Kumar’s skills or projects?"})
