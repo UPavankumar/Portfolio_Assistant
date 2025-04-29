@@ -120,16 +120,18 @@ st.markdown(
         display: flex;
         flex-direction: column;
         height: 80vh;  /* Fixed height to control layout */
+        position: relative;  /* Ensure proper positioning */
     }
     .chat-history {
         flex: 1;
-        overflow-y: auto;
+        overflow-y: auto;  /* Ensure scrolling if content overflows */
         padding: 15px;
         background-color: transparent;  /* Transparent chat history */
         border: 1px solid #ffffff;  /* White border for chat history */
         border-radius: 5px;
         margin-bottom: 15px;
         box-sizing: border-box;
+        width: 100%;  /* Ensure full width */
     }
     .chat-message {
         margin: 10px 0;
@@ -156,6 +158,7 @@ st.markdown(
         z-index: 100;
         display: flex;
         align-items: center;
+        width: 100%;  /* Ensure full width */
     }
     .stTextInput > div > div > input {
         background-color: transparent;
@@ -199,7 +202,7 @@ with st.container():
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     # Chat history
     st.markdown('<div class="chat-history">', unsafe_allow_html=True)
-    # Only render messages if they exist, avoiding empty divs
+    # Only render messages if they exist
     if st.session_state.conversation:
         for message in st.session_state.conversation:
             if message["role"] == "assistant":
