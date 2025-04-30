@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 
 # Load API key
-api_key = "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"
+api_key = st.secrets["GROQ_API_KEY"]
 
 # Initialize Groq client
 client = Groq(api_key=api_key)
@@ -14,7 +14,6 @@ st.title("Chat with Alfred")
 # Resume knowledge base
 resume_knowledge_base = """
 **Pavan Kumar's Resume Knowledge Base**
-
 **Personal Information**:
 - Name: Pavan Kumar
 - Location: Bengaluru, India
@@ -24,34 +23,27 @@ resume_knowledge_base = """
 - Relocation: Fully flexible for relocation nationwide (India) no assistance required.
 - Work Preference: Open to remote, hybrid, or on-site roles.
 - Availability: Available to start immediately .
-
 **Professional Summary**:
 - Aspiring Data Scientist with a strong foundation in data analysis, machine learning, and data visualization. Proficient in Python, SQL, Power BI, and eager to apply skills in real-world projects.
-
 **Skills**:
 - Programming: Python, SQL, R
 - Machine Learning: Scikit-learn, TensorFlow, PyTorch
 - Data Visualization: Power BI, Tableau
 - Data Analysis: Pandas, NumPy, Matplotlib, Seaborn
 - AI/ML: Natural Language Processing, Computer Vision
-
 **Experience**:
 - Spire Technologies, Bengaluru (Data Analyst Consultant)
   - Built Python/SQL pipelines for 100K+ skill datasets.
   - Designed Power BI dashboards, reducing reporting time.
-
 **Education**:
 - B.E. in Computer Science (Data Science), MVJ College of Engineering, Bengaluru
-
 **Projects**:
 - E-commerce Churn Prediction: Built an XGBoost model (85% precision) and automated feature engineering.
 - Discord Bot for Twitter Verification: Developed with Python/Discord API and robust exception handling.
-
 **Certifications**:
 - Google Data Analytics (Coursera)
 - Google Project Management (Coursera)
 - Smart Contracts (SUNY)
-
 **Career Aspirations**:
 - Data Scientist
 - Machine Learning Engineer
