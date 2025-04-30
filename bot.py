@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 
 # Load API key
-api_key = st.secrets["GROQ_API_KEY"]
+api_key = "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"
 
 # Initialize Groq client
 client = Groq(api_key=api_key)
@@ -61,8 +61,8 @@ def get_response(user_input):
     try:
         system_prompt = f"""
 You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
-If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track in the next 2-3 chats.
-If the user repeats the same input (e.g., 'hello'), offer a different response or ask a new question to avoid loops.
+Always greet users with “Good Day, [Name]” when they say their name.
+If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track.
 Knowledge Base: {resume_knowledge_base}
 """
         messages = [
@@ -108,34 +108,3 @@ if user_input := st.chat_input("Your message"):
             st.markdown(f'**Alfred:** {response}')
     # Add assistant response to session state
     st.session_state.messages.append({"role": "assistant", "content": response})
-
-# Custom CSS with stricter containment
-st.markdown(
-    """
-    <style>
-    .main {
-        background-color: #343a40 !important;
-        color: #ffffff;
-        font-family: 'Arial', sans-serif;
-        display: flex;
-        flex-direction: column;
-        height: 90vh;
-        justify-content: center;
-    }
-    .stApp {
-        background-color: #343a40 !important;
-    }
-    /* Style assistant messages */
-    div[data-testid="stChatMessage"][data-testid="assistant"] {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-    /* Style user messages */
-    div[data-testid="stChatMessage"][data-testid="user"] {
-        background-color: #6c757d;
-        text-align: right;
-        margin-left: 20%;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
