@@ -14,7 +14,7 @@ except Exception as e:
     st.stop()
 
 # Set page title and layout
-st.set_page_config(page_title="Chat with Alfred", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Pavan's Assistant", layout="centered", initial_sidebar_state="collapsed")
 st.title("Chat with Alfred")
 
 # Resume knowledge base
