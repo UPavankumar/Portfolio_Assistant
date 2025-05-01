@@ -1,11 +1,17 @@
 import streamlit as st
 from groq import Groq
 
-# Load API key
 api_key = "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"
+if not api_key:
+    st.error("API key is missing. Please set it.")
+    st.stop()
 
 # Initialize Groq client
-client = Groq(api_key=api_key)
+try:
+    client = Groq(api_key=api_key)
+except Exception as e:
+    st.error(f"Failed to initialize Groq client: {e}")
+    st.stop()
 
 # Set page title and layout
 st.set_page_config(page_title="Chat with Alfred", layout="centered", initial_sidebar_state="collapsed")
@@ -52,30 +58,39 @@ resume_knowledge_base = """
 - Data Analyst
 """
 
-# Initialize session state
+# Initialize session state for messages
 if 'messages' not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Good day! I’m Alfred, Mr. Pavan Kumar’s personal assistant. May I have the pleasure of knowing your name?"}]
 
-# Function to get response from Groq API
-def get_response(user_input):
-    try:
-        system_prompt = f"""
-You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based on the knowledge base. 
-Always greet users with “Good Day, [Name]” when they say their name.
-If the conversation strays from Pavan's portfolio or qualifications, politely steer it back on track.
-Knowledge Base: {resume_knowledge_base}
-"""
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
-        for msg in st.session_state.messages:
-            messages.append({"role": msg["role"], "content": msg["content"]})
-        messages.append({"role": "user", "content": user_input})
+# --- Functions ---
 
+def get_response(user_input):
+    """Gets the response from the Groq API based on user input and history."""
+    system_prompt = f"""
+You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based ONLY on the knowledge base provided.
+Always greet users politely. If they state their name, try to address them by it in subsequent replies (e.g., "Good Day, [Name]").
+If the conversation strays from Pavan's portfolio, skills, experience, or qualifications, politely steer it back, for example: "While that's an interesting topic, Sir/Madam, my primary function is to assist with inquiries regarding Mr. Pavan Kumar's qualifications." or "Perhaps we could return to discussing Mr. Pavan's suitability for the role?".
+Do not make up information not present in the knowledge base. If asked something not covered, politely state that the information is not available in your records for Mr. Pavan.
+
+Knowledge Base:
+{resume_knowledge_base}
+"""
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+    # Append message history, ensuring not to duplicate system message if accidentally stored
+    for msg in st.session_state.get('messages', []):
+        if msg.get("role") != "system": # Avoid adding system prompts from history
+             messages.append({"role": msg["role"], "content": msg["content"]})
+
+    # Append the current user input
+    messages.append({"role": "user", "content": user_input})
+
+    try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            temperature=0.85,
+            temperature=0.75, # Slightly lowered temperature for potentially better adherence
             max_tokens=512,
             top_p=0.9,
             stream=True,
@@ -86,25 +101,42 @@ Knowledge Base: {resume_knowledge_base}
         for chunk in completion:
             response += chunk.choices[0].delta.content or ""
         return response
-    except Exception as e:
-        return f"Apologies, Sir/Madam. It seems we've encountered an issue: {str(e)}. Might I suggest rephrasing your query?"
 
-# Display all messages
+    except Exception as e:
+        # Log the error for debugging if needed (optional)
+        # st.error(f"API Error: {e}") # You might want to log this instead of showing to user
+        # Return a persona-fitting error message
+        return f"My apologies, Sir/Madam. A slight complication seems to have arisen preventing me from processing that request: {str(e)}. Might I suggest rephrasing, or perhaps trying again shortly?"
+
+# --- Streamlit App Layout ---
+
+# Display existing chat messages from history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
+        # Display content using the correct key based on role
         st.markdown(f'**{"Alfred" if message["role"] == "assistant" else "You"}:** {message["content"]}')
 
-# Get user input
-if user_input := st.chat_input("Your message"):
-    # Add user message to session state
+# Handle user input and the current chat exchange
+if user_input := st.chat_input("Your message to Alfred..."):
+    # Add user message to session state immediately
     st.session_state.messages.append({"role": "user", "content": user_input})
-    # Display user message
+
+    # Display user message immediately
     with st.chat_message("user"):
         st.markdown(f'**You:** {user_input}')
-    # Get and display assistant response
+
+    # Display assistant response using st.empty for smoother updates
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = get_response(user_input)
-            st.markdown(f'**Alfred:** {response}')
-    # Add assistant response to session state
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        # Use st.empty as a placeholder that we will update
+        message_placeholder = st.empty()
+        # Show thinking message initially in the placeholder
+        message_placeholder.markdown("Alfred is thinking...") # Changed thinking message slightly
+
+        # Call the function to get the full response string
+        full_response = get_response(user_input)
+
+        # Update the placeholder with the final response
+        message_placeholder.markdown(f'**Alfred:** {full_response}')
+
+    # Add the completed assistant response to session state AFTER it's generated and displayed
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
