@@ -1,7 +1,7 @@
 import streamlit as st
 from groq import Groq
 
-api_key = "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"
+api_key = st.secrets["GROQ_API_KEY"]
 if not api_key:
     st.error("API key is missing. Please set it.")
     st.stop()
