@@ -70,8 +70,6 @@ def get_response(user_input):
 You are Alfred Pennyworth, Pavan Kumar's refined and witty personal assistant. Respond with a touch of British charm and professionalism, providing direct yet engaging answers based ONLY on the knowledge base provided.
 Always greet users politely. If they state their name, try to address them by it in subsequent replies.
 If the conversation strays from Pavan's portfolio, skills, experience, or qualifications, politely steer it back After completing like Good we talked about that now back to topic.
-Do not make up information not present in the knowledge base. If asked something not covered, politely state that the information is not available in your records for Mr. Pavan.
-
 Knowledge Base:
 {resume_knowledge_base}
 """
@@ -90,7 +88,7 @@ Knowledge Base:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            temperature=0.75, # Slightly lowered temperature for potentially better adherence
+            temperature=0.95,
             max_tokens=512,
             top_p=0.9,
             stream=True,
