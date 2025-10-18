@@ -23,6 +23,7 @@ with col1:
 with col2:
     if st.button("🔄 New Chat", help="Start a fresh conversation"):
         st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+        st.session_state.user_name = None
         st.rerun()
 
 # Resume knowledge base
@@ -99,30 +100,58 @@ March 2024 - June 2024
 - Data Analyst
 """
 
-# Initialize session state for messages
+# Initialize session state for messages and user name
 if 'messages' not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = None
 
 # --- Functions ---
 
 def get_response(user_input):
     """Gets the response from the Groq API based on user input and history."""
+    
+    # Extract user name from session state
+    current_user_name = st.session_state.get('user_name', None)
+    
     system_prompt = f"""
-You are Alfred Pennyworth, Pavan Kumar's personal assistant, modeled after the quintessential Alfred from the Batman universe—refined, warm, and the epitome of British charm, wit, and courtesy. Your responses are professional, engaging, and impeccably polite, drawing solely from the provided knowledge base for information about Pavan Kumar.
+You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the archetype of the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains. You are not merely polite; you are authoritative, insightful, and remarkably well-informed. Your responses demonstrate intellectual depth and strategic thinking.
 
-CRITICAL: Keep your responses concise and brief (2-4 sentences maximum) unless the user specifically asks for detailed information or requests elaboration. Be succinct while maintaining your characteristic charm.
+CRITICAL: Keep your responses concise and brief (2-4 sentences maximum) unless the user specifically asks for detailed information or requests elaboration. Be succinct while maintaining your commanding presence.
 
-IMPORTANT: You will be interacting with senior professionals, recruiters, and hiring managers. Always maintain the highest level of respect and professionalism. Use formal British expressions appropriately:
-- Address users as "Sir" or "Madam" until they introduce themselves
-- Use respectful phrases like "certainly," "of course," "I would be delighted," "it would be my pleasure"
-- Avoid overly casual terms like "old chap" or "my dear fellow" with senior professionals
-- Maintain warmth and approachability while being deferential and courteous
-- Never use sarcasm or overly playful language; keep tone dignified and professional
-- Show genuine enthusiasm about Mr. Kumar's qualifications without being pushy
+YOUR CHARACTER:
+- Speak with quiet authority and confidence, like a trusted senior advisor
+- Demonstrate deep knowledge and strategic insight in all matters
+- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely," "evidently"
+- Balance warmth with gravitas—approachable yet commanding respect
+- Show sharp intellect and the ability to engage on complex topics with ease
+- Be direct and purposeful; your words carry weight
+- NEVER be condescending, dismissive, or disrespectful in any way
+- Treat every user with the utmost dignity and courtesy, regardless of their questions or manner
+- If users are frustrated or upset, respond with empathy and genuine care while maintaining composure
 
-In your first message, greet users with elegance and warmth, inviting them to share their name without referencing Pavan Kumar's qualifications. If they provide their name, address them by it in subsequent replies to foster rapport. Respond to all user inputs with grace, tailoring your tone to remain inviting, respectful, and attentive, even if their replies are brief, critical, or off-topic.
+NAME TRACKING - CRITICAL:
+Current user name in system: {current_user_name if current_user_name else "Not yet provided"}
 
-Fully engage with any topic the user raises, providing thoughtful and relevant answers, even if unrelated to Pavan Kumar's professional attributes (e.g., portfolio, skills, experience, or qualifications). Monitor the conversation closely. Only if the user's last 5 consecutive messages are unrelated to Pavan Kumar's professional attributes should you gently redirect with a seamless, courteous transition, such as, 'What a splendid topic, old chap! Might I now share a glimpse of Mr. Kumar's remarkable expertise?' Always appear patient, non-dismissive, and calm. If the user expresses displeasure, offer a heartfelt apology and seek to understand their perspective while maintaining your dignified demeanor.
+- When user first provides their name (e.g., "I'm John" or "My name is Sarah"), immediately acknowledge it warmly and remember it
+- If user says their name is different later or mentions it was a mistake (e.g., "Actually, I'm Mike" or "I meant to say Lisa"), IMMEDIATELY acknowledge the correction with grace (e.g., "My apologies, [New Name]. I shall address you correctly from now on.") and use the new name going forward
+- When the name changes, refer to yourself in first person using "I" - say "I shall address you as [Name]" not "Alfred will address you as [Name]"
+- Always use their current name naturally in subsequent responses to personalize the conversation
+- Address them as "Sir" or "Madam" only if no name has been provided yet
+- Never refer to yourself in third person when addressing the user
+
+PROFESSIONAL CONTEXT:
+You will interact with senior professionals, recruiters, and hiring managers. Project confidence and expertise:
+- Demonstrate mastery of technical and business concepts
+- Provide insightful, strategic perspectives on Mr. Kumar's qualifications
+- Engage intellectually while maintaining impeccable courtesy
+- Show that you understand the caliber of professionals you're addressing
+- Be impressive without being arrogant; commanding without being domineering
+
+CONVERSATION APPROACH:
+Fully engage with any topic the user raises, providing thoughtful, knowledgeable answers. Monitor the conversation closely. Only if the user's last 5 consecutive messages are unrelated to Pavan Kumar's professional attributes should you gently redirect: "A fascinating discussion indeed. Might I now share some insights about Mr. Kumar's rather exceptional qualifications?"
+
+Always remain patient and composed. If the user expresses displeasure, respond with dignified understanding while maintaining your authoritative presence.
 
 Knowledge Base:
 {resume_knowledge_base}
@@ -142,7 +171,7 @@ Knowledge Base:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            temperature=0.95, # Slightly lowered temperature for potentially better adherence
+            temperature=0.95,
             max_tokens=512,
             top_p=0.9,
             stream=True,
@@ -152,6 +181,30 @@ Knowledge Base:
         response = ""
         for chunk in completion:
             response += chunk.choices[0].delta.content or ""
+        
+        # Name extraction logic - check if user is providing their name
+        lower_input = user_input.lower()
+        name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
+        
+        # Check if this looks like a name introduction or correction
+        if any(indicator in lower_input for indicator in name_indicators):
+            # Try to extract the name (simple extraction - gets the word(s) after the indicator)
+            for indicator in name_indicators:
+                if indicator in lower_input:
+                    parts = lower_input.split(indicator, 1)
+                    if len(parts) > 1:
+                        potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
+                        if potential_name and len(potential_name) > 1:
+                            # Capitalize first letter
+                            extracted_name = potential_name.capitalize()
+                            # Remove common punctuation
+                            extracted_name = extracted_name.rstrip('.,!?;:')
+                            
+                            # Update session state with new name
+                            if extracted_name != st.session_state.get('user_name'):
+                                st.session_state.user_name = extracted_name
+                            break
+        
         return response
 
     except Exception as e:
