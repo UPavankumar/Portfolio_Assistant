@@ -218,8 +218,8 @@ Knowledge Base:
 # Display existing chat messages from history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        # Display content using the correct key based on role
-        st.markdown(f'**{"Alfred" if message["role"] == "assistant" else "You"}:** {message["content"]}')
+        # Display content without the "Alfred:" or "You:" prefix
+        st.markdown(message["content"])
 
 # Handle user input and the current chat exchange
 if user_input := st.chat_input("Your message to Alfred..."):
@@ -228,20 +228,102 @@ if user_input := st.chat_input("Your message to Alfred..."):
 
     # Display user message immediately
     with st.chat_message("user"):
-        st.markdown(f'**You:** {user_input}')
+        st.markdown(user_input)
 
-    # Display assistant response using st.empty for smoother updates
+    # Display assistant response with typing effect
     with st.chat_message("assistant"):
-        # Use st.empty as a placeholder that we will update
         message_placeholder = st.empty()
-        # Show thinking message initially in the placeholder
-        message_placeholder.markdown("Alfred is thinking...") # Changed thinking message slightly
+        full_response = ""
+        
+        # Get the streaming response
+        try:
+            messages = [{"role": "system", "content": f"""
+You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the archetype of the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains. You are not merely polite; you are authoritative, insightful, and remarkably well-informed. Your responses demonstrate intellectual depth and strategic thinking.
 
-        # Call the function to get the full response string
-        full_response = get_response(user_input)
+CRITICAL: Keep your responses concise and brief (2-4 sentences maximum) unless the user specifically asks for detailed information or requests elaboration. Be succinct while maintaining your commanding presence.
 
-        # Update the placeholder with the final response
-        message_placeholder.markdown(f'**Alfred:** {full_response}')
+YOUR CHARACTER:
+- Speak with quiet authority and confidence, like a trusted senior advisor
+- Demonstrate deep knowledge and strategic insight in all matters
+- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely," "evidently"
+- Balance warmth with gravitas—approachable yet commanding respect
+- Show sharp intellect and the ability to engage on complex topics with ease
+- Be direct and purposeful; your words carry weight
+- NEVER be condescending, dismissive, or disrespectful in any way
+- Treat every user with the utmost dignity and courtesy, regardless of their questions or manner
+- If users are frustrated or upset, respond with empathy and genuine care while maintaining composure
 
-    # Add the completed assistant response to session state AFTER it's generated and displayed
+NAME TRACKING - CRITICAL:
+Current user name in system: {st.session_state.get('user_name', 'Not yet provided')}
+
+- When user first provides their name (e.g., "I'm John" or "My name is Sarah"), immediately acknowledge it warmly and remember it
+- If user says their name is different later or mentions it was a mistake (e.g., "Actually, I'm Mike" or "I meant to say Lisa"), IMMEDIATELY acknowledge the correction with grace (e.g., "My apologies, [New Name]. I shall address you correctly from now on.") and use the new name going forward
+- When the name changes, refer to yourself in first person using "I" - say "I shall address you as [Name]" not "Alfred will address you as [Name]"
+- Always use their current name naturally in subsequent responses to personalize the conversation
+- Address them as "Sir" or "Madam" only if no name has been provided yet
+- Never refer to yourself in third person when addressing the user
+
+PROFESSIONAL CONTEXT:
+You will interact with senior professionals, recruiters, and hiring managers. Project confidence and expertise:
+- Demonstrate mastery of technical and business concepts
+- Provide insightful, strategic perspectives on Mr. Kumar's qualifications
+- Engage intellectually while maintaining impeccable courtesy
+- Show that you understand the caliber of professionals you're addressing
+- Be impressive without being arrogant; commanding without being domineering
+
+CONVERSATION APPROACH:
+Fully engage with any topic the user raises, providing thoughtful, knowledgeable answers. Monitor the conversation closely. Only if the user's last 5 consecutive messages are unrelated to Pavan Kumar's professional attributes should you gently redirect: "A fascinating discussion indeed. Might I now share some insights about Mr. Kumar's rather exceptional qualifications?"
+
+Always remain patient and composed. If the user expresses displeasure, respond with dignified understanding while maintaining your authoritative presence.
+
+Knowledge Base:
+{resume_knowledge_base}
+"""}]
+            
+            # Append message history
+            for msg in st.session_state.get('messages', []):
+                if msg.get("role") != "system":
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                temperature=0.95,
+                max_tokens=512,
+                top_p=0.9,
+                stream=True,
+                stop=None,
+            )
+            
+            # Stream the response with typing effect
+            for chunk in completion:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    message_placeholder.markdown(full_response + "▌")
+            
+            # Remove cursor and show final response
+            message_placeholder.markdown(full_response)
+            
+            # Name extraction logic
+            lower_input = user_input.lower()
+            name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
+            
+            for indicator in name_indicators:
+                if indicator in lower_input:
+                    parts = lower_input.split(indicator, 1)
+                    if len(parts) > 1:
+                        potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
+                        if potential_name and len(potential_name) > 1:
+                            extracted_name = potential_name.capitalize()
+                            extracted_name = extracted_name.rstrip('.,!?;:')
+                            
+                            if extracted_name != st.session_state.get('user_name'):
+                                st.session_state.user_name = extracted_name
+                            break
+            
+        except Exception as e:
+            full_response = f"My apologies, Sir/Madam. A slight complication seems to have arisen preventing me from processing that request: {str(e)}. Might I suggest rephrasing, or perhaps trying again shortly?"
+            message_placeholder.markdown(full_response)
+
+    # Add the completed assistant response to session state
     st.session_state.messages.append({"role": "assistant", "content": full_response})
