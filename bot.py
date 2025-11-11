@@ -3,7 +3,7 @@ from groq import Groq
 from sentence_transformers import SentenceTransformer
 import chromadb
 from pathlib import Path
-import sys
+import re
 
 # =========================
 # Streamlit & Page Setup
@@ -36,9 +36,8 @@ except Exception as e:
 # =========================
 @st.cache_resource
 def get_chroma_client():
-    """Initialize ChromaDB client with proper configuration"""
+    """Initialize ChromaDB client"""
     try:
-        # Use updated ChromaDB configuration
         return chromadb.PersistentClient(path="./chroma_db")
     except Exception as e:
         st.error(f"Failed to initialize ChromaDB: {e}")
@@ -58,11 +57,63 @@ def get_embeddings_model():
 embedding_model = get_embeddings_model()
 
 # =========================
+# Intent Classification
+# =========================
+def classify_intent(query: str) -> str:
+    """Classify user intent using keyword matching"""
+    query_lower = query.lower()
+    
+    intent_patterns = {
+        "experience": ["work", "job", "company", "companies", "employer", "position", "role", "worked", "career", "employment"],
+        "projects": ["project", "built", "created", "developed", "model", "application", "churn", "discord", "bot", "prediction"],
+        "skills": ["skill", "technology", "tech stack", "programming", "language", "tool", "knows", "proficient", "expertise", "can he"],
+        "education": ["study", "studied", "degree", "college", "university", "education", "graduated", "bachelor"],
+        "contact": ["contact", "email", "phone", "reach", "linkedin", "portfolio", "connect", "availability"],
+        "summary": ["who is", "about", "overview", "summary", "tell me about", "introduction", "background"],
+        "certifications": ["certification", "certified", "certificate", "course", "training"],
+        "achievements": ["achievement", "promotion", "award", "recognition", "accomplishment"],
+    }
+    
+    # Score each intent
+    scores = {}
+    for intent, keywords in intent_patterns.items():
+        scores[intent] = sum(2 if kw in query_lower else 0 for kw in keywords)
+    
+    # Return highest scoring intent
+    max_intent = max(scores, key=scores.get)
+    return max_intent if scores[max_intent] > 0 else "general"
+
+def llm_classify_intent(query: str) -> str:
+    """Fallback: Use LLM for intent classification when rules fail"""
+    try:
+        intent_prompt = f"""Classify this question into ONE of these categories: experience, projects, skills, education, contact, summary, certifications, achievements, general
+
+Question: "{query}"
+
+Reply with ONLY the category name, nothing else."""
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": intent_prompt}],
+            temperature=0,
+            max_tokens=10,
+        )
+        
+        intent = response.choices[0].message.content.strip().lower()
+        valid_intents = ["experience", "projects", "skills", "education", "contact", "summary", "certifications", "achievements", "general"]
+        
+        return intent if intent in valid_intents else "general"
+    
+    except Exception as e:
+        st.warning(f"Intent classification failed: {e}")
+        return "general"
+
+# =========================
 # Load Resume File
 # =========================
 resume_path = Path("resume_knowledge_base.md")
 if not resume_path.exists():
-    st.error("Resume file (resume_knowledge_base.md) not found. Please place it in the project root.")
+    st.error("Resume file (resume_knowledge_base.md) not found.")
     st.stop()
 
 try:
@@ -72,11 +123,62 @@ except Exception as e:
     st.stop()
 
 # =========================
-# Vectorize Resume
+# Smart Resume Chunking
+# =========================
+def parse_resume_sections(content: str) -> dict:
+    """Parse resume into sections with metadata"""
+    sections = {}
+    current_section = "header"
+    current_content = []
+    
+    lines = content.split('\n')
+    
+    for line in lines:
+        # Detect section headers
+        if line.startswith('##') and not line.startswith('###'):
+            # Save previous section
+            if current_content:
+                sections[current_section] = '\n'.join(current_content)
+            
+            # Start new section
+            section_name = line.replace('#', '').strip().lower()
+            
+            # Map to standard intent categories
+            if 'experience' in section_name or 'work' in section_name:
+                current_section = 'experience'
+            elif 'project' in section_name:
+                current_section = 'projects'
+            elif 'skill' in section_name or 'technical' in section_name:
+                current_section = 'skills'
+            elif 'education' in section_name:
+                current_section = 'education'
+            elif 'certification' in section_name:
+                current_section = 'certifications'
+            elif 'achievement' in section_name:
+                current_section = 'achievements'
+            elif 'personal' in section_name or 'contact' in section_name:
+                current_section = 'contact'
+            elif 'summary' in section_name:
+                current_section = 'summary'
+            else:
+                current_section = section_name
+            
+            current_content = [line]
+        else:
+            current_content.append(line)
+    
+    # Save last section
+    if current_content:
+        sections[current_section] = '\n'.join(current_content)
+    
+    return sections
+
+# =========================
+# Initialize Knowledge Base
 # =========================
 @st.cache_resource
 def initialize_knowledge_base(_chroma_client, _embedding_model, resume_content):
-    """Initialize or load the resume knowledge base"""
+    """Initialize knowledge base with sectioned chunks and metadata"""
     try:
         collection = _chroma_client.get_or_create_collection(
             name="resume_knowledge_base",
@@ -84,39 +186,41 @@ def initialize_knowledge_base(_chroma_client, _embedding_model, resume_content):
         )
         
         if collection.count() == 0:
-            # Split resume into meaningful chunks
-            chunks = []
-            current_chunk = ""
-            lines = resume_content.split('\n')
+            sections = parse_resume_sections(resume_content)
             
-            for line in lines:
-                # Start new chunk on headers or after reaching size limit
-                if line.startswith('#') and current_chunk:
-                    chunks.append(current_chunk.strip())
-                    current_chunk = line + '\n'
-                elif len(current_chunk) > 800:
-                    chunks.append(current_chunk.strip())
-                    current_chunk = line + '\n'
+            all_chunks = []
+            all_metadatas = []
+            
+            for section_name, section_content in sections.items():
+                # Split large sections into smaller chunks
+                if len(section_content) > 1000:
+                    # Split by paragraphs
+                    paragraphs = [p.strip() for p in section_content.split('\n\n') if p.strip()]
+                    for para in paragraphs:
+                        all_chunks.append(para)
+                        all_metadatas.append({
+                            "section": section_name,
+                            "char_count": len(para)
+                        })
                 else:
-                    current_chunk += line + '\n'
+                    all_chunks.append(section_content)
+                    all_metadatas.append({
+                        "section": section_name,
+                        "char_count": len(section_content)
+                    })
             
-            if current_chunk:
-                chunks.append(current_chunk.strip())
+            # Generate embeddings
+            embeddings = _embedding_model.encode(all_chunks, show_progress_bar=False).tolist()
             
-            # Remove empty chunks
-            chunks = [c for c in chunks if c.strip()]
-            
-            # Generate embeddings and add to collection
-            embeddings = _embedding_model.encode(chunks, show_progress_bar=False).tolist()
-            
+            # Add to collection
             collection.add(
-                ids=[f"chunk_{i}" for i in range(len(chunks))],
+                ids=[f"chunk_{i}" for i in range(len(all_chunks))],
                 embeddings=embeddings,
-                documents=chunks,
-                metadatas=[{"chunk_id": i} for i in range(len(chunks))]
+                documents=all_chunks,
+                metadatas=all_metadatas
             )
             
-            st.success(f"✅ Initialized knowledge base with {len(chunks)} chunks")
+            st.success(f"✅ Initialized knowledge base with {len(all_chunks)} chunks across {len(sections)} sections")
         
         return collection
     
@@ -127,38 +231,35 @@ def initialize_knowledge_base(_chroma_client, _embedding_model, resume_content):
 collection = initialize_knowledge_base(chroma_client, embedding_model, resume_text)
 
 # =========================
-# Helper Functions
+# Smart Retrieval Function
 # =========================
-def search_resume(query, top_k=3):
-    """Search resume using semantic similarity"""
+def smart_search(query: str, intent: str, top_k: int = 4) -> list:
+    """Search with intent-based filtering"""
     try:
         query_embedding = embedding_model.encode([query], show_progress_bar=False).tolist()
-        results = collection.query(
-            query_embeddings=query_embedding, 
-            n_results=top_k
-        )
+        
+        # If intent is specific, filter by section
+        if intent != "general":
+            results = collection.query(
+                query_embeddings=query_embedding,
+                n_results=top_k,
+                where={"section": intent}
+            )
+        else:
+            # For general queries, search everything
+            results = collection.query(
+                query_embeddings=query_embedding,
+                n_results=top_k
+            )
         
         if results and "documents" in results and results["documents"]:
             return results["documents"][0]
+        
         return []
     
     except Exception as e:
         st.warning(f"Search error: {e}")
         return []
-
-def summarize_history(messages, max_len=2000):
-    """Summarize conversation history to fit context window"""
-    full_text = ""
-    for msg in messages:
-        role = msg["role"]
-        content = msg["content"]
-        full_text += f"{role}: {content}\n"
-    
-    if len(full_text) <= max_len:
-        return full_text
-    else:
-        # Keep the last max_len characters
-        return "...(earlier conversation)...\n" + full_text[-max_len:]
 
 # =========================
 # Initialize Session State
@@ -166,7 +267,7 @@ def summarize_history(messages, max_len=2000):
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
-            "role": "assistant", 
+            "role": "assistant",
             "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. How may I assist you today?"
         }
     ]
@@ -179,67 +280,65 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # =========================
-# Chat Input
+# Chat Input Handler
 # =========================
 if user_input := st.chat_input("Your message to Alfred..."):
-
-    # Display user message
+    
+    # Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
-
-    # RAG retrieval
-    relevant_chunks = search_resume(user_input, top_k=3)
+    
+    # Step 1: Classify Intent
+    intent = classify_intent(user_input)
+    
+    # Fallback to LLM if needed
+    if intent == "general" and len(user_input.split()) > 3:
+        intent = llm_classify_intent(user_input)
+    
+    # Step 2: Smart Retrieval
+    relevant_chunks = smart_search(user_input, intent, top_k=4)
     
     if relevant_chunks:
         resume_context = "\n\n---\n\n".join(relevant_chunks)
     else:
-        resume_context = "No specific resume context found for this query."
+        resume_context = "No specific information found in the résumé for this query."
+    
+    # Step 3: Build Enhanced System Prompt
+    system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished personal assistant.
 
-    # Conversation history (keep last 6 messages for context)
-    recent_messages = st.session_state.messages[-7:-1] if len(st.session_state.messages) > 1 else []
-    history_summary = summarize_history(recent_messages, max_len=1500)
+Query Intent Detected: {intent.upper()}
 
-    # Build system prompt
-    system_prompt = f"""You are Alfred Pennyworth, the distinguished and articulate personal assistant to Mr. Pavan Kumar.
-
-Your demeanor is professional, refined, and helpful. You speak with clarity and precision, always maintaining a respectful tone.
-
-When answering questions about Mr. Pavan Kumar:
-- Use ONLY information from the résumé context provided below
-- Be precise and factual
-- If information is not in the context, politely say "I don't have that specific information in Mr. Kumar's records"
-- Speak in first person when representing Mr. Kumar (e.g., "Mr. Kumar has expertise in..." or "He specializes in...")
-
-Recent Conversation Context:
-{history_summary}
+Instructions:
+- Provide a precise, well-structured answer based ONLY on the résumé context below
+- If the query asks for multiple items (e.g., "list all companies"), enumerate them clearly
+- If information is missing, state: "I don't have that specific detail in Mr. Kumar's records"
+- Maintain a professional, refined tone
+- Synthesize information intelligently rather than quoting verbatim
 
 Résumé Context:
 {resume_context}
 
-Respond professionally and concisely."""
+Recent Conversation:
+{' '.join([m['content'][:100] for m in st.session_state.messages[-4:-1]])}"""
 
-    # Prepare messages for API
-    api_messages = [{"role": "system", "content": system_prompt}]
+    # Prepare API messages
+    api_messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input}
+    ]
     
-    # Add recent conversation context
-    for msg in recent_messages:
-        api_messages.append({"role": msg["role"], "content": msg["content"]})
-    
-    # Add current user message
-    api_messages.append({"role": "user", "content": user_input})
-
-    # Stream response
+    # Step 4: Stream Response
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         response_text = ""
-
+        
         try:
             completion = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=api_messages,
-                temperature=0.7,
-                max_tokens=600,
+                temperature=0.6,
+                max_tokens=700,
                 top_p=0.9,
                 stream=True,
             )
@@ -255,11 +354,10 @@ Respond professionally and concisely."""
         except Exception as e:
             response_text = f"My apologies, I encountered a difficulty: {str(e)}"
             message_placeholder.markdown(response_text)
-
-    # Add assistant response to history
+    
+    # Add assistant response
     st.session_state.messages.append({"role": "assistant", "content": response_text})
     
-    # Keep conversation history manageable (last 20 messages)
+    # Trim history (keep last 20 messages)
     if len(st.session_state.messages) > 20:
-        # Keep first message (greeting) and last 19
         st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-19:]
