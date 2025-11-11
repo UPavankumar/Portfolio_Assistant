@@ -5,7 +5,9 @@ import chromadb
 from pathlib import Path
 import json
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from datetime import datetime, timedelta
+import hashlib
 
 # =========================
 # Configuration
@@ -20,12 +22,211 @@ st.markdown("""
 <style>
     .stChatMessage {padding: 1rem; border-radius: 0.5rem;}
     .structured-info {background-color: #f0f2f6; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;}
+    .mode-badge {background-color: #0066cc; color: white; padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.85rem;}
+    .goal-badge {background-color: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 1rem; font-size: 0.85rem;}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("💼 Alfred — Pavan Kumar's Personal AI Assistant")
 
-DEBUG_MODE = st.sidebar.checkbox("🔧 Debug Mode", value=False)
+# =========================
+# Cache Management System
+# =========================
+CACHE_FILE = Path("alfred_session_cache.json")
+CACHE_EXPIRY_HOURS = 48
+
+class SessionCache:
+    @staticmethod
+    def save_cache(data: Dict):
+        """Save session data to persistent cache"""
+        try:
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "data": data
+            }
+            with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, indent=2)
+        except Exception as e:
+            st.warning(f"⚠️ Cache save failed: {e}")
+    
+    @staticmethod
+    def load_cache() -> Optional[Dict]:
+        """Load session data from cache if not expired"""
+        try:
+            if not CACHE_FILE.exists():
+                return None
+            
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # Check expiry
+            cache_time = datetime.fromisoformat(cache_data["timestamp"])
+            if datetime.now() - cache_time > timedelta(hours=CACHE_EXPIRY_HOURS):
+                return None
+            
+            return cache_data["data"]
+        except Exception as e:
+            st.warning(f"⚠️ Cache load failed: {e}")
+            return None
+    
+    @staticmethod
+    def clear_cache():
+        """Clear the cache file"""
+        try:
+            if CACHE_FILE.exists():
+                CACHE_FILE.unlink()
+        except Exception as e:
+            st.warning(f"⚠️ Cache clear failed: {e}")
+
+# =========================
+# Conversation Summarizer
+# =========================
+def summarize_conversation(messages: List[Dict], client: Groq) -> str:
+    """Create compressed summary of conversation history"""
+    if len(messages) <= 5:
+        return ""
+    
+    conversation_text = "\n".join([
+        f"{msg['role'].upper()}: {msg['content'][:200]}" 
+        for msg in messages[1:-4]  # Skip system message and keep last 4
+    ])
+    
+    summary_prompt = f"""Summarize this conversation between a user and Alfred (Pavan Kumar's AI assistant) in 2-3 sentences. Focus on:
+- Topics discussed
+- Information requested
+- Any ongoing tasks or goals
+
+Conversation:
+{conversation_text}
+
+Summary:"""
+    
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": summary_prompt}],
+            temperature=0.3,
+            max_tokens=150
+        )
+        return response.choices[0].message.content.strip()
+    except:
+        return "Previous conversation continued."
+
+# =========================
+# Initialize Session State
+# =========================
+def init_session_state():
+    """Initialize or restore session state with memory"""
+    
+    # Load cache on first run
+    if "initialized" not in st.session_state:
+        cached_data = SessionCache.load_cache()
+        
+        if cached_data:
+            st.session_state.update(cached_data)
+            st.session_state.cache_restored = True
+        else:
+            # Fresh initialization
+            st.session_state.messages = [{
+                "role": "assistant",
+                "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. I have his complete professional dossier at hand. How may I assist you today?"
+            }]
+            st.session_state.conversation_summary = ""
+            st.session_state.user_identity = {
+                "name": "Guest",
+                "relationship": "visitor",
+                "verified": False
+            }
+            st.session_state.last_intent = None
+            st.session_state.active_goal = None
+            st.session_state.interaction_mode = "balanced"  # concise, balanced, detailed, builder
+            st.session_state.user_preferences = {
+                "tone": "professional",
+                "verbosity": "medium"
+            }
+            st.session_state.context_topics = []
+            st.session_state.cache_restored = False
+        
+        st.session_state.initialized = True
+
+init_session_state()
+
+# Sidebar Controls
+with st.sidebar:
+    st.header("🎛️ Alfred Controls")
+    
+    # User Identity
+    st.subheader("👤 User Identity")
+    user_name = st.text_input("Your Name", value=st.session_state.user_identity.get("name", "Guest"))
+    if user_name != st.session_state.user_identity["name"]:
+        st.session_state.user_identity["name"] = user_name
+        if user_name.lower() in ["pavan", "pavan kumar"]:
+            st.session_state.user_identity["relationship"] = "owner"
+            st.session_state.user_identity["verified"] = True
+            st.success("✅ Owner verified")
+    
+    # Interaction Mode
+    st.subheader("💬 Interaction Mode")
+    mode = st.selectbox(
+        "Response Style",
+        ["concise", "balanced", "detailed", "builder"],
+        index=["concise", "balanced", "detailed", "builder"].index(st.session_state.interaction_mode)
+    )
+    if mode != st.session_state.interaction_mode:
+        st.session_state.interaction_mode = mode
+        st.info(f"✨ Mode: {mode.title()}")
+    
+    # Active Goal
+    st.subheader("🎯 Active Goal")
+    if st.session_state.active_goal:
+        st.markdown(f'<div class="goal-badge">🎯 {st.session_state.active_goal}</div>', unsafe_allow_html=True)
+        if st.button("Clear Goal"):
+            st.session_state.active_goal = None
+            st.rerun()
+    else:
+        st.info("No active goal")
+    
+    # Session Management
+    st.subheader("💾 Session Management")
+    
+    if st.session_state.cache_restored:
+        st.success("✅ Session restored from cache")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 Save Session"):
+            cache_data = {
+                "messages": st.session_state.messages,
+                "conversation_summary": st.session_state.conversation_summary,
+                "user_identity": st.session_state.user_identity,
+                "last_intent": st.session_state.last_intent,
+                "active_goal": st.session_state.active_goal,
+                "interaction_mode": st.session_state.interaction_mode,
+                "user_preferences": st.session_state.user_preferences,
+                "context_topics": st.session_state.context_topics
+            }
+            SessionCache.save_cache(cache_data)
+            st.success("✅ Saved!")
+    
+    with col2:
+        if st.button("🔄 Start Fresh"):
+            SessionCache.clear_cache()
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+    
+    # Debug Mode
+    st.subheader("🔧 Debug")
+    DEBUG_MODE = st.checkbox("Debug Mode", value=False)
+    
+    if DEBUG_MODE:
+        st.json({
+            "last_intent": st.session_state.last_intent,
+            "active_goal": st.session_state.active_goal,
+            "mode": st.session_state.interaction_mode,
+            "message_count": len(st.session_state.messages),
+            "topics": st.session_state.context_topics[-3:]
+        })
 
 # =========================
 # Initialize Clients
@@ -115,7 +316,6 @@ Return ONLY JSON, no markdown."""
 
     cache_file = Path("structured_resume_cache.json")
     
-    # Load from cache if exists
     if cache_file.exists():
         try:
             with open(cache_file, 'r', encoding='utf-8') as f:
@@ -123,11 +323,10 @@ Return ONLY JSON, no markdown."""
         except:
             pass
     
-    # Extract fresh
     try:
         with st.spinner("🔄 Analyzing résumé..."):
             response = _client.chat.completions.create(
-                model="llama-3.3-70b-versatile",  # Updated model
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": extraction_prompt}],
                 temperature=0,
                 max_tokens=3000
@@ -139,7 +338,6 @@ Return ONLY JSON, no markdown."""
         
         structured_data = json.loads(json_text)
         
-        # Save cache
         with open(cache_file, 'w', encoding='utf-8') as f:
             json.dump(structured_data, f, indent=2)
         
@@ -162,12 +360,10 @@ def parse_resume_fallback(content: str) -> Dict:
         "summary": ""
     }
     
-    # Extract email
     email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', content)
     if email_match:
         data["contact"]["email"] = email_match.group()
     
-    # Extract phone
     phone_match = re.search(r'\+?\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}', content)
     if phone_match:
         data["contact"]["phone"] = phone_match.group()
@@ -176,11 +372,8 @@ def parse_resume_fallback(content: str) -> Dict:
 
 structured_data = extract_structured_data(client, resume_text)
 
-if DEBUG_MODE:
-    st.sidebar.json(structured_data)
-
 # =========================
-# Vector Database
+# Vector Database with Context
 # =========================
 @st.cache_resource
 def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
@@ -197,7 +390,6 @@ def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
             metadata={"hnsw:space": "cosine"}
         )
         
-        # Parse sections
         sections = {}
         current_section = "header"
         current_content = []
@@ -209,7 +401,6 @@ def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
                 
                 section_name = line.replace('#', '').strip().lower()
                 
-                # Normalize
                 if 'experience' in section_name or 'work' in section_name:
                     current_section = 'experience'
                 elif 'project' in section_name:
@@ -236,7 +427,6 @@ def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
         if current_content:
             sections[current_section] = '\n'.join(current_content)
         
-        # Add to DB
         all_docs, all_metas, all_ids = [], [], []
         
         for section, content in sections.items():
@@ -263,10 +453,18 @@ def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
 collection, available_sections = initialize_vector_db(chroma_client, embedding_model, resume_text)
 
 # =========================
-# Intent Classification
+# Enhanced Intent Classification with Context
 # =========================
-def classify_intent(query: str) -> str:
+def classify_intent_with_context(query: str, last_intent: Optional[str], context_topics: List[str]) -> Tuple[str, float]:
+    """Classify intent considering conversation context"""
     q = query.lower()
+    
+    # Detect follow-up questions
+    follow_up_patterns = ['tell me more', 'what about', 'and the', 'how about', 'also', 'additionally', 'what else']
+    is_follow_up = any(pattern in q for pattern in follow_up_patterns)
+    
+    if is_follow_up and last_intent:
+        return last_intent, 0.9  # High confidence for follow-ups
     
     patterns = {
         'experience': {
@@ -305,6 +503,11 @@ def classify_intent(query: str) -> str:
     
     scores = {intent: 0 for intent in patterns}
     
+    # Boost score if topic matches recent context
+    for intent in scores:
+        if intent in context_topics:
+            scores[intent] += 2
+    
     for intent, data in patterns.items():
         for phrase in data['phrases']:
             if phrase in q:
@@ -314,10 +517,31 @@ def classify_intent(query: str) -> str:
                 scores[intent] += 1
     
     max_intent = max(scores.items(), key=lambda x: x[1])
-    return max_intent[0] if max_intent[1] > 0 else 'general'
+    confidence = max_intent[1] / 10.0  # Normalize confidence
+    
+    return (max_intent[0] if max_intent[1] > 0 else 'general'), confidence
 
 # =========================
-# Formatters
+# Detect Goals
+# =========================
+def detect_goal(query: str) -> Optional[str]:
+    """Detect if user is starting a new goal/project"""
+    goal_patterns = {
+        'build': r'(build|create|make|develop) (?:a |an )?(.*?)(?:\.|$)',
+        'learn': r'(learn|understand|explain) (?:about )?(.*?)(?:\.|$)',
+        'analyze': r'(analyze|review|examine) (.*?)(?:\.|$)',
+        'plan': r'(plan|organize|schedule) (.*?)(?:\.|$)'
+    }
+    
+    for goal_type, pattern in goal_patterns.items():
+        match = re.search(pattern, query.lower())
+        if match:
+            return f"{goal_type.title()}: {match.group(2).strip()}"
+    
+    return None
+
+# =========================
+# Formatters (same as before)
 # =========================
 def format_experience(exp_list: List[Dict]) -> str:
     if not exp_list:
@@ -409,9 +633,16 @@ def format_education(edu_list: List[Dict]) -> str:
     return result
 
 # =========================
-# Intelligent Search
+# Context-Aware Search
 # =========================
-def intelligent_search(query: str, intent: str, structured: Dict) -> Tuple[str, str]:
+def intelligent_search_with_context(query: str, intent: str, structured: Dict, context_topics: List[str]) -> Tuple[str, str]:
+    """Enhanced search with conversation context"""
+    
+    # Enrich query with context
+    enriched_query = query
+    if context_topics:
+        enriched_query = f"{' '.join(context_topics[-2:])} {query}"
+    
     # Try structured first
     if intent == 'experience' and structured.get('experience'):
         return format_experience(structured['experience']), 'structured'
@@ -430,9 +661,9 @@ def intelligent_search(query: str, intent: str, structured: Dict) -> Tuple[str, 
     elif intent == 'summary' and structured.get('summary'):
         return structured['summary'], 'structured'
     
-    # Fallback to vector
+    # Fallback to vector with context
     try:
-        query_embedding = embedding_model.encode([query], show_progress_bar=False).tolist()
+        query_embedding = embedding_model.encode([enriched_query], show_progress_bar=False).tolist()
         
         if intent in available_sections:
             results = collection.query(query_embeddings=query_embedding, n_results=3, where={"section": intent})
@@ -447,101 +678,82 @@ def intelligent_search(query: str, intent: str, structured: Dict) -> Tuple[str, 
         return f"Search error: {e}", 'error'
 
 # =========================
-# Session State
+# Display Chat History
 # =========================
-if "messages" not in st.session_state:
-    st.session_state.messages = [{
-        "role": "assistant",
-        "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. I have his complete professional dossier at hand. How may I assist you today?"
-    }]
-
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # =========================
-# Chat Handler
+# Chat Handler with Enhanced Context
 # =========================
 if user_input := st.chat_input("Your message to Alfred..."):
     
+    # Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
     
-    intent = classify_intent(user_input)
+    # Detect goal
+    detected_goal = detect_goal(user_input)
+    if detected_goal and not st.session_state.active_goal:
+        st.session_state.active_goal = detected_goal
     
-    if DEBUG_MODE:
-        st.sidebar.write(f"**Intent:** {intent}")
+    # Intent classification with context
+    intent, confidence = classify_intent_with_context(
+        user_input, 
+        st.session_state.last_intent,
+        st.session_state.context_topics
+    )
     
-    context, source = intelligent_search(user_input, intent, structured_data)
-    
-    if DEBUG_MODE:
-        st.sidebar.write(f"**Source:** {source}")
-        st.sidebar.text_area("Context", context[:500], height=200)
-    
-    # Direct answer if structured
-    if source == 'structured':
-        response_text = f"Certainly. {context}"
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
-        with st.chat_message("assistant"):
-            st.markdown(response_text)
-    else:
-        # LLM synthesis
-        system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished personal AI assistant.
-
-Query Intent: **{intent.upper()}**
-
-INSTRUCTIONS:
-1. Answer using ONLY the context below
-2. If asked for a list, provide ALL items with formatting
-3. Maintain refined, professional British butler tone
-4. Never invent companies, projects, or details
-5. If missing info: "That detail is not specified in Mr. Kumar's records"
-6. Use markdown for readability
-
-CONTEXT:
-{context}
-
-STRUCTURED DATA SUMMARY:
-- Experience: {len(structured_data.get('experience', []))} positions
-- Projects: {len(structured_data.get('projects', []))} projects
-- Skills: {sum(len(v) for v in structured_data.get('skills', {}).values())} total
-
-Respond as Alfred would."""
-
-        api_messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input}
-        ]
+    # Low confidence clarification
+    if confidence < 0.3 and not any(word in user_input.lower() for word in ['tell me more', 'what about']):
+        clarification = "I want to ensure I understand correctly. Are you asking about "
+        if st.session_state.last_intent:
+            clarification += f"**{st.session_state.last_intent}**, or something else? Could you please clarify?"
+        else:
+            clarification += "Mr. Kumar's professional background? Please specify what information you need."
         
+        st.session_state.messages.append({"role": "assistant", "content": clarification})
         with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            response_text = ""
-            
-            try:
-                completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",  # Updated model
-                    messages=api_messages,
-                    temperature=0.5,
-                    max_tokens=1500,
-                    top_p=0.9,
-                    stream=True,
-                )
-                
-                for chunk in completion:
-                    if chunk.choices[0].delta.content:
-                        delta = chunk.choices[0].delta.content
-                        response_text += delta
-                        message_placeholder.markdown(response_text + "▌")
-                
-                message_placeholder.markdown(response_text)
-                
-            except Exception as e:
-                response_text = f"My apologies, I encountered a difficulty: {str(e)}"
-                message_placeholder.markdown(response_text)
-        
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
+            st.markdown(clarification)
+        st.rerun()
     
-    # Manage history
-    if len(st.session_state.messages) > 30:
-        st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-29:]
+    # Update context
+    st.session_state.last_intent = intent
+    if intent not in st.session_state.context_topics:
+        st.session_state.context_topics.append(intent)
+    st.session_state.context_topics = st.session_state.context_topics[-5:]  # Keep last 5
+    
+    # Search with context
+    context, source = intelligent_search_with_context(
+        user_input, 
+        intent, 
+        structured_data,
+        st.session_state.context_topics
+    )
+    
+    # Prepare conversation history for LLM
+    recent_messages = st.session_state.messages[-6:]  # Last 3 exchanges
+    conversation_context = "\n".join([
+        f"{msg['role'].upper()}: {msg['content'][:150]}" 
+        for msg in recent_messages[:-1]
+    ])
+    
+    # Build system prompt with full context
+    mode_instructions = {
+        "concise": "Keep responses brief (2-3 sentences max). Be direct.",
+        "balanced": "Provide clear, well-structured responses with appropriate detail.",
+        "detailed": "Give comprehensive, thorough explanations with examples where relevant.",
+        "builder": "Focus on technical implementation details, step-by-step guidance, and actionable insights."
+    }
+    
+    user_context = f"User: {st.session_state.user_identity['name']}"
+    if st.session_state.user_identity['relationship'] == 'owner':
+        user_context += " (Mr. Kumar himself)"
+    
+    goal_context = f"\nActive Goal: {st.session_state.active_goal}" if st.session_state.active_goal else ""
+    
+    system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished personal AI assistant.
+
+{user_context}
