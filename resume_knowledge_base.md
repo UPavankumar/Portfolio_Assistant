@@ -59,7 +59,7 @@ Recognized for delivering intelligent automation solutions, scalable data pipeli
 
 #### **Database & Application Development**
 - Managed and optimized PostgreSQL databases for production-scale applications.  
-- Developed the "Ping App" and full-stack login system using the Flutter framework.
+- Developed the Software and full-stack login system using the Flutter framework.
 
 #### **Workflow & Integration**
 - Automated ticket extraction and inbound lead management using **N8n**.  
