@@ -1,5 +1,19 @@
+# --- Core Streamlit App ---
 streamlit
+streamlit-chat
+
+# --- LLM Integration ---
 groq
-chromadb==0.4.24
-sentence-transformers
+
+# --- Retrieval-Augmented Generation (RAG) ---
+chromadb==0.4.24          # Stable version (avoid latest API break)
+sentence-transformers==2.2.2
 python-dotenv
+
+# --- Firebase Integration (optional but retained) ---
+google-cloud-firestore
+firebase-admin
+
+# --- Utilities ---
+requests
+pyspellchecker
