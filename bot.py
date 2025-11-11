@@ -38,7 +38,6 @@ CACHE_EXPIRY_HOURS = 48
 class SessionCache:
     @staticmethod
     def save_cache(data: Dict):
-        """Save session data to persistent cache"""
         try:
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
@@ -46,12 +45,11 @@ class SessionCache:
             }
             with open(CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, indent=2)
-        except Exception as e:
-            st.warning(f"⚠️ Cache save failed: {e}")
+        except:
+            pass
     
     @staticmethod
     def load_cache() -> Optional[Dict]:
-        """Load session data from cache if not expired"""
         try:
             if not CACHE_FILE.exists():
                 return None
@@ -59,30 +57,26 @@ class SessionCache:
             with open(CACHE_FILE, 'r', encoding='utf-8') as f:
                 cache_data = json.load(f)
             
-            # Check expiry
             cache_time = datetime.fromisoformat(cache_data["timestamp"])
             if datetime.now() - cache_time > timedelta(hours=CACHE_EXPIRY_HOURS):
                 return None
             
             return cache_data["data"]
-        except Exception as e:
+        except:
             return None
     
     @staticmethod
     def clear_cache():
-        """Clear the cache file"""
         try:
             if CACHE_FILE.exists():
                 CACHE_FILE.unlink()
-        except Exception as e:
+        except:
             pass
 
 # =========================
 # Initialize Session State
 # =========================
 def init_session_state():
-    """Initialize or restore session state with memory"""
-    
     if "initialized" not in st.session_state:
         cached_data = SessionCache.load_cache()
         
@@ -92,7 +86,7 @@ def init_session_state():
         else:
             st.session_state.messages = [{
                 "role": "assistant",
-                "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. I have his complete professional dossier at hand. How may I assist you today?"
+                "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. How may I assist you today?"
             }]
             st.session_state.conversation_summary = ""
             st.session_state.user_identity = {
@@ -103,10 +97,6 @@ def init_session_state():
             st.session_state.last_intent = None
             st.session_state.active_goal = None
             st.session_state.interaction_mode = "balanced"
-            st.session_state.user_preferences = {
-                "tone": "professional",
-                "verbosity": "medium"
-            }
             st.session_state.context_topics = []
             st.session_state.cache_restored = False
         
@@ -118,7 +108,6 @@ init_session_state()
 with st.sidebar:
     st.header("🎛️ Alfred Controls")
     
-    # User Identity
     st.subheader("👤 User Identity")
     user_name = st.text_input("Your Name", value=st.session_state.user_identity.get("name", "Guest"))
     if user_name != st.session_state.user_identity["name"]:
@@ -128,7 +117,6 @@ with st.sidebar:
             st.session_state.user_identity["verified"] = True
             st.success("✅ Owner verified")
     
-    # Interaction Mode
     st.subheader("💬 Interaction Mode")
     mode = st.selectbox(
         "Response Style",
@@ -138,7 +126,6 @@ with st.sidebar:
     if mode != st.session_state.interaction_mode:
         st.session_state.interaction_mode = mode
     
-    # Active Goal
     st.subheader("🎯 Active Goal")
     if st.session_state.active_goal:
         st.markdown(f'<div class="goal-badge">🎯 {st.session_state.active_goal}</div>', unsafe_allow_html=True)
@@ -148,7 +135,6 @@ with st.sidebar:
     else:
         st.info("No active goal")
     
-    # Session Management
     st.subheader("💾 Session Management")
     
     if st.session_state.cache_restored:
@@ -164,7 +150,6 @@ with st.sidebar:
                 "last_intent": st.session_state.last_intent,
                 "active_goal": st.session_state.active_goal,
                 "interaction_mode": st.session_state.interaction_mode,
-                "user_preferences": st.session_state.user_preferences,
                 "context_topics": st.session_state.context_topics
             }
             SessionCache.save_cache(cache_data)
@@ -177,22 +162,29 @@ with st.sidebar:
                 del st.session_state[key]
             st.rerun()
     
-    # Debug Mode
     DEBUG_MODE = st.checkbox("🔧 Debug", value=False)
+    
+    if DEBUG_MODE:
+        st.json({
+            "last_intent": st.session_state.last_intent,
+            "active_goal": st.session_state.active_goal,
+            "mode": st.session_state.interaction_mode,
+            "messages": len(st.session_state.messages),
+            "topics": st.session_state.context_topics[-3:] if st.session_state.context_topics else []
+        })
 
 # =========================
 # Initialize Clients
 # =========================
 try:
-    # Try secrets first, then environment variable
     api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
     if not api_key:
-        st.error("⚠️ GROQ_API_KEY not found. Please add it to .streamlit/secrets.toml or environment variables.")
+        st.error("⚠️ GROQ_API_KEY not found. Add it to .streamlit/secrets.toml")
         st.stop()
     
     client = Groq(api_key=api_key)
 except Exception as e:
-    st.error(f"❌ Failed to initialize Groq: {e}")
+    st.error(f"❌ Groq initialization failed: {e}")
     st.stop()
 
 @st.cache_resource
@@ -200,7 +192,7 @@ def get_chroma_client():
     try:
         return chromadb.PersistentClient(path="./chroma_db")
     except Exception as e:
-        st.error(f"❌ ChromaDB initialization failed: {e}")
+        st.error(f"❌ ChromaDB failed: {e}")
         st.stop()
 
 @st.cache_resource
@@ -219,8 +211,7 @@ embedding_model = get_embeddings_model()
 # =========================
 resume_path = Path("resume_knowledge_base.md")
 if not resume_path.exists():
-    st.error("❌ resume_knowledge_base.md not found in root directory.")
-    st.info("Please ensure the file exists in the same folder as bot.py")
+    st.error("❌ resume_knowledge_base.md not found")
     st.stop()
 
 resume_text = resume_path.read_text(encoding="utf-8")
@@ -230,9 +221,7 @@ resume_text = resume_path.read_text(encoding="utf-8")
 # =========================
 @st.cache_data
 def extract_structured_data(_client, resume_content: str) -> Dict:
-    """Extract structured information from resume using LLM"""
-    
-    extraction_prompt = f"""Extract structured information from this résumé and return ONLY valid JSON:
+    extraction_prompt = f"""Extract structured information from this résumé and return ONLY valid JSON with NO markdown:
 
 {{
   "experience": [
@@ -264,7 +253,7 @@ def extract_structured_data(_client, resume_content: str) -> Dict:
 RÉSUMÉ:
 {resume_content}
 
-Return ONLY JSON, no markdown."""
+Return ONLY the JSON object, nothing else."""
 
     cache_file = Path("structured_resume_cache.json")
     
@@ -296,7 +285,7 @@ Return ONLY JSON, no markdown."""
         return structured_data
     
     except Exception as e:
-        st.warning(f"⚠️ Extraction failed: {e}")
+        st.warning(f"⚠️ Using fallback data extraction")
         return {
             "experience": [], "projects": [], "skills": {},
             "education": [], "certifications": [], "achievements": [],
@@ -310,7 +299,7 @@ structured_data = extract_structured_data(client, resume_text)
 # =========================
 @st.cache_resource
 def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
-    collection_name = "alfred_kb_v5"
+    collection_name = "alfred_kb_v6"
     
     try:
         try:
@@ -386,77 +375,53 @@ def initialize_vector_db(_chroma_client, _embedding_model, resume_content: str):
 collection, available_sections = initialize_vector_db(chroma_client, embedding_model, resume_text)
 
 # =========================
-# Intent Classification
+# Smart Intent Classification
 # =========================
-def classify_intent_with_context(query: str, last_intent: Optional[str], context_topics: List[str]) -> Tuple[str, float]:
-    """Classify intent considering conversation context"""
+def classify_intent(query: str, last_intent: Optional[str], context_topics: List[str]) -> str:
+    """Smart intent classification - NO clarification questions"""
     q = query.lower()
     
-    follow_up_patterns = ['tell me more', 'what about', 'and the', 'how about', 'also', 'additionally', 'what else']
-    is_follow_up = any(pattern in q for pattern in follow_up_patterns)
+    # Detect follow-ups - use last intent immediately
+    follow_up_patterns = ['tell me more', 'what about', 'and', 'also', 'what else', 'more about', 'continue', 'go on']
+    if any(pattern in q for pattern in follow_up_patterns) and last_intent:
+        return last_intent
     
-    if is_follow_up and last_intent:
-        return last_intent, 0.9
+    # Strong keyword matching
+    if any(word in q for word in ['work', 'job', 'company', 'employer', 'role', 'position', 'career', 'worked']):
+        return 'experience'
     
-    patterns = {
-        'experience': {
-            'keywords': ['work', 'worked', 'job', 'company', 'companies', 'employer', 'position', 'role', 'career'],
-            'phrases': ['where did he work', 'places he worked', 'work experience']
-        },
-        'projects': {
-            'keywords': ['project', 'built', 'created', 'developed', 'application', 'model', 'bot'],
-            'phrases': ['list projects', 'what projects']
-        },
-        'skills': {
-            'keywords': ['skill', 'technology', 'tech', 'programming', 'language', 'tool'],
-            'phrases': ['what skills', 'tech stack']
-        },
-        'education': {
-            'keywords': ['education', 'degree', 'college', 'university', 'studied'],
-            'phrases': ['where did he study']
-        },
-        'certifications': {
-            'keywords': ['certification', 'certificate', 'certified', 'course'],
-            'phrases': ['certifications']
-        },
-        'achievements': {
-            'keywords': ['achievement', 'accomplishment', 'award'],
-            'phrases': ['achievements']
-        },
-        'contact': {
-            'keywords': ['contact', 'email', 'phone', 'reach', 'linkedin'],
-            'phrases': ['how to contact']
-        },
-        'summary': {
-            'keywords': ['who', 'about', 'overview', 'summary'],
-            'phrases': ['who is', 'tell me about']
-        }
-    }
+    if any(word in q for word in ['project', 'built', 'created', 'developed', 'application', 'model', 'bot']):
+        return 'projects'
     
-    scores = {intent: 0 for intent in patterns}
+    if any(word in q for word in ['skill', 'technology', 'tech', 'programming', 'language', 'tool', 'expertise']):
+        return 'skills'
     
-    for intent in scores:
-        if intent in context_topics:
-            scores[intent] += 2
+    if any(word in q for word in ['education', 'degree', 'college', 'university', 'studied', 'graduated']):
+        return 'education'
     
-    for intent, data in patterns.items():
-        for phrase in data['phrases']:
-            if phrase in q:
-                scores[intent] += len(phrase.split()) * 3
-        for keyword in data['keywords']:
-            if keyword in q:
-                scores[intent] += 1
+    if any(word in q for word in ['certification', 'certificate', 'certified', 'course']):
+        return 'certifications'
     
-    max_intent = max(scores.items(), key=lambda x: x[1])
-    confidence = max_intent[1] / 10.0
+    if any(word in q for word in ['achievement', 'accomplishment', 'award', 'promoted']):
+        return 'achievements'
     
-    return (max_intent[0] if max_intent[1] > 0 else 'general'), confidence
+    if any(word in q for word in ['contact', 'email', 'phone', 'reach', 'linkedin', 'portfolio', 'website']):
+        return 'contact'
+    
+    if any(word in q for word in ['who', 'about', 'overview', 'summary', 'background', 'tell me about', 'introduce']):
+        return 'summary'
+    
+    # Use context if available
+    if context_topics:
+        return context_topics[-1]
+    
+    # Default to summary for general queries
+    return 'summary'
 
 # =========================
 # Goal Detection
 # =========================
 def detect_goal(query: str) -> Optional[str]:
-    """Detect if user is starting a new goal/project"""
     goal_patterns = {
         'build': r'(build|create|make|develop) (?:a |an )?(.*?)(?:\.|$)',
         'learn': r'(learn|understand|explain) (?:about )?(.*?)(?:\.|$)',
@@ -476,22 +441,21 @@ def detect_goal(query: str) -> Optional[str]:
 # =========================
 def format_experience(exp_list: List[Dict]) -> str:
     if not exp_list:
-        return "No experience information found."
+        return "No experience information available."
     
     result = "**Professional Experience:**\n\n"
     for exp in exp_list:
         result += f"### {exp.get('role', 'N/A')} at {exp.get('company', 'N/A')}\n"
         result += f"📍 {exp.get('location', 'N/A')} | 📅 {exp.get('duration', 'N/A')}\n\n"
         if exp.get('highlights'):
-            result += "**Key Achievements:**\n"
             for h in exp['highlights']:
-                result += f"- {h}\n"
+                result += f"• {h}\n"
             result += "\n"
     return result
 
 def format_projects(proj_list: List[Dict]) -> str:
     if not proj_list:
-        return "No project information found."
+        return "No project information available."
     
     result = "**Projects:**\n\n"
     for proj in proj_list:
@@ -500,15 +464,14 @@ def format_projects(proj_list: List[Dict]) -> str:
         if proj.get('technologies'):
             result += f"**Technologies:** {', '.join(proj['technologies'])}\n\n"
         if proj.get('achievements'):
-            result += "**Key Results:**\n"
             for a in proj['achievements']:
-                result += f"- {a}\n"
+                result += f"• {a}\n"
             result += "\n"
     return result
 
 def format_skills(skills_dict: Dict) -> str:
     if not skills_dict:
-        return "No skills information found."
+        return "No skills information available."
     
     result = "**Technical Skills:**\n\n"
     for category, skills in skills_dict.items():
@@ -531,48 +494,48 @@ def format_contact(contact_dict: Dict) -> str:
 
 def format_certifications(cert_list: List) -> str:
     if not cert_list:
-        return "No certifications found."
+        return "No certifications available."
     
     result = "**Certifications:**\n\n"
     for cert in cert_list:
         if isinstance(cert, dict):
-            result += f"- **{cert.get('name', 'N/A')}** — {cert.get('issuer', 'N/A')}"
+            result += f"• **{cert.get('name', 'N/A')}** — {cert.get('issuer', 'N/A')}"
             if cert.get('year'):
                 result += f" ({cert['year']})"
             result += "\n"
         else:
-            result += f"- {cert}\n"
+            result += f"• {cert}\n"
     return result
 
 def format_achievements(ach_list: List[str]) -> str:
     if not ach_list:
-        return "No achievements information found."
+        return "No achievements information available."
     
     result = "**Notable Achievements:**\n\n"
     for ach in ach_list:
-        result += f"- {ach}\n"
+        result += f"• {ach}\n"
     return result
 
 def format_education(edu_list: List[Dict]) -> str:
     if not edu_list:
-        return "No education information found."
+        return "No education information available."
     
     result = "**Education:**\n\n"
     for edu in edu_list:
-        result += f"- **{edu.get('degree', 'N/A')}** in {edu.get('field', 'N/A')}\n"
+        result += f"• **{edu.get('degree', 'N/A')}** in {edu.get('field', 'N/A')}\n"
         result += f"  {edu.get('institution', 'N/A')}, {edu.get('location', 'N/A')}\n\n"
     return result
 
 # =========================
-# Context-Aware Search
+# Intelligent Search
 # =========================
-def intelligent_search_with_context(query: str, intent: str, structured: Dict, context_topics: List[str]) -> Tuple[str, str]:
-    """Enhanced search with conversation context"""
-    
+def intelligent_search(query: str, intent: str, structured: Dict, context_topics: List[str]) -> Tuple[str, str]:
+    # Enrich query with context
     enriched_query = query
     if context_topics:
         enriched_query = f"{' '.join(context_topics[-2:])} {query}"
     
+    # Try structured data first
     if intent == 'experience' and structured.get('experience'):
         return format_experience(structured['experience']), 'structured'
     elif intent == 'projects' and structured.get('projects'):
@@ -590,6 +553,7 @@ def intelligent_search_with_context(query: str, intent: str, structured: Dict, c
     elif intent == 'summary' and structured.get('summary'):
         return structured['summary'], 'structured'
     
+    # Fallback to vector search
     try:
         query_embedding = embedding_model.encode([enriched_query], show_progress_bar=False).tolist()
         
@@ -599,11 +563,29 @@ def intelligent_search_with_context(query: str, intent: str, structured: Dict, c
             results = collection.query(query_embeddings=query_embedding, n_results=3)
         
         if results and results['documents'] and results['documents'][0]:
-            return '\n\n---\n\n'.join(results['documents'][0]), 'vector'
+            return '\n\n'.join(results['documents'][0]), 'vector'
         
-        return "I couldn't find specific information for that query.", 'none'
+        return "I don't have specific information on that topic in Mr. Kumar's records.", 'none'
     except Exception as e:
-        return f"Search error: {e}", 'error'
+        return f"I encountered a technical issue: {str(e)}", 'error'
+
+# =========================
+# Build Conversation Context
+# =========================
+def build_conversation_context(messages: List[Dict], max_messages: int = 4) -> str:
+    """Build conversation history for context"""
+    if len(messages) <= 1:
+        return ""
+    
+    recent = messages[-(max_messages*2):-1]  # Skip current message
+    context = []
+    
+    for msg in recent:
+        role = msg['role'].upper()
+        content = msg['content'][:150]  # Truncate long messages
+        context.append(f"{role}: {content}")
+    
+    return "\n".join(context)
 
 # =========================
 # Display Chat History
@@ -613,81 +595,92 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # =========================
-# Chat Handler
+# Main Chat Handler
 # =========================
 if user_input := st.chat_input("Your message to Alfred..."):
     
+    # Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
     
+    # Detect goal
     detected_goal = detect_goal(user_input)
     if detected_goal and not st.session_state.active_goal:
         st.session_state.active_goal = detected_goal
     
-    intent, confidence = classify_intent_with_context(
+    # Classify intent - NO CLARIFICATION, ALWAYS PROCEED
+    intent = classify_intent(
         user_input, 
         st.session_state.last_intent,
         st.session_state.context_topics
     )
     
-    if confidence < 0.3 and not any(word in user_input.lower() for word in ['tell me more', 'what about']):
-        clarification = "I want to ensure I understand correctly. Could you please clarify what specific information you need about Mr. Kumar?"
-        
-        st.session_state.messages.append({"role": "assistant", "content": clarification})
-        with st.chat_message("assistant"):
-            st.markdown(clarification)
-        st.rerun()
-    
+    # Update context
     st.session_state.last_intent = intent
     if intent not in st.session_state.context_topics:
         st.session_state.context_topics.append(intent)
     st.session_state.context_topics = st.session_state.context_topics[-5:]
     
-    context, source = intelligent_search_with_context(
+    # Get context
+    context, source = intelligent_search(
         user_input, 
         intent, 
         structured_data,
         st.session_state.context_topics
     )
     
+    # Build conversation history
+    conversation_history = build_conversation_context(st.session_state.messages)
+    
+    # Mode instructions
     mode_instructions = {
-        "concise": "Keep responses brief (2-3 sentences max).",
-        "balanced": "Provide clear, well-structured responses.",
-        "detailed": "Give comprehensive, thorough explanations.",
-        "builder": "Focus on technical implementation details."
+        "concise": "Be brief and direct. 2-3 sentences maximum.",
+        "balanced": "Provide clear, well-structured responses with key details.",
+        "detailed": "Give comprehensive explanations with context and examples.",
+        "builder": "Focus on technical details, implementation steps, and actionable insights."
     }
     
-    user_context = f"User: {st.session_state.user_identity['name']}"
+    # User context
+    user_context = f"Speaking with: {st.session_state.user_identity['name']}"
     if st.session_state.user_identity['relationship'] == 'owner':
         user_context += " (Mr. Kumar himself)"
     
-    goal_context = f"\nActive Goal: {st.session_state.active_goal}" if st.session_state.active_goal else ""
+    goal_info = f"\n\nActive Goal: {st.session_state.active_goal}" if st.session_state.active_goal else ""
     
-    system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished personal AI assistant.
+    # System prompt
+    system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished British personal AI assistant.
 
-{user_context}{goal_context}
+{user_context}{goal_info}
 
-Query Intent: {intent.upper()}
-Mode: {mode_instructions[st.session_state.interaction_mode]}
+CONVERSATION CONTEXT:
+{conversation_history}
 
-INSTRUCTIONS:
-1. Answer using ONLY the context below
-2. Maintain refined, professional British butler tone
-3. Never invent details
-4. If missing info: "That detail is not specified in Mr. Kumar's records"
+CURRENT QUERY INTENT: {intent.upper()}
+RESPONSE MODE: {mode_instructions[st.session_state.interaction_mode]}
 
-CONTEXT:
+CORE RULES:
+1. Answer ONLY using the CONTEXT below - never invent information
+2. Be professional, refined, and confident like Alfred Pennyworth
+3. If information is missing, say "That detail is not in Mr. Kumar's records" - DON'T ask clarifying questions
+4. Use markdown formatting for better readability
+5. Maintain conversational flow based on conversation history
+6. NEVER ask "what would you like to know" - just answer the query directly
+
+CONTEXT FOR THIS QUERY:
 {context}
 
-Respond as Alfred would."""
+Now respond to the user's query as Alfred would - direct, professional, and helpful."""
 
-    if source == 'structured':
-        response_text = f"Certainly. {context}"
+    # Generate response
+    if source == 'structured' and intent in ['experience', 'projects', 'skills', 'contact', 'certifications', 'achievements', 'education']:
+        # Direct structured response
+        response_text = context
         st.session_state.messages.append({"role": "assistant", "content": response_text})
         with st.chat_message("assistant"):
             st.markdown(response_text)
     else:
+        # LLM synthesis
         api_messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input}
@@ -701,8 +694,9 @@ Respond as Alfred would."""
                 completion = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=api_messages,
-                    temperature=0.5,
-                    max_tokens=1500,
+                    temperature=0.6,
+                    max_tokens=1200,
+                    top_p=0.9,
                     stream=True,
                 )
                 
@@ -715,14 +709,20 @@ Respond as Alfred would."""
                 message_placeholder.markdown(response_text)
                 
             except Exception as e:
-                response_text = f"My apologies, I encountered a difficulty: {str(e)}"
+                error_msg = str(e)
+                if "rate" in error_msg.lower():
+                    response_text = "My apologies, I'm experiencing high demand. Please try again in a moment."
+                else:
+                    response_text = f"I encountered a technical issue. Please try rephrasing your query."
                 message_placeholder.markdown(response_text)
         
         st.session_state.messages.append({"role": "assistant", "content": response_text})
     
+    # Manage message history
     if len(st.session_state.messages) > 30:
         st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-24:]
     
+    # Auto-save session
     cache_data = {
         "messages": st.session_state.messages,
         "conversation_summary": st.session_state.conversation_summary,
@@ -730,7 +730,6 @@ Respond as Alfred would."""
         "last_intent": st.session_state.last_intent,
         "active_goal": st.session_state.active_goal,
         "interaction_mode": st.session_state.interaction_mode,
-        "user_preferences": st.session_state.user_preferences,
         "context_topics": st.session_state.context_topics
     }
     SessionCache.save_cache(cache_data)
@@ -742,10 +741,14 @@ st.markdown("---")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.caption("💾 Memory Active" if st.session_state.conversation_summary else "🆕 Fresh Session")
+    if st.session_state.conversation_summary or len(st.session_state.messages) > 5:
+        st.caption("💾 Memory Active")
+    else:
+        st.caption("🆕 Fresh Session")
 
 with col2:
     st.caption(f"💬 {st.session_state.interaction_mode.title()}")
 
 with col3:
-    st.caption(f"📊 {len(st.session_state.messages)-1} msgs")
+    msg_count = len(st.session_state.messages) - 1
+    st.caption(f"📊 {msg_count} messages")
