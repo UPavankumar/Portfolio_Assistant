@@ -1,50 +1,49 @@
-# Portfolio Assistant
+# Alfred — Pavan Kumar’s AI Portfolio Assistant
 
-A Streamlit-based chatbot assistant for my portfolio, powered by Alfred Pennyworth's wit and charm.
+A Streamlit-based **AI-powered portfolio assistant**, personified as *Alfred Pennyworth* — the calm, articulate, and intelligent aide to Mr. Pavan Kumar.  
+Alfred answers questions about Pavan’s professional experience, skills, and projects by retrieving information directly from his résumé knowledge base using modern **Retrieval-Augmented Generation (RAG)**.
 
-## Features
+---
 
-* **Portfolio Insights**: Responds to user queries about my portfolio, providing information on my skills, experience, and projects.
-* **Conversational Interface**: Engages users with a conversational interface, making it easy to explore my portfolio.
-* **Streamlit Integration**: Built with Streamlit, allowing for seamless deployment and sharing.
+## 🚀 Features
 
-## Tech Stack
+### 🗂️ Resume Intelligence
+- Alfred dynamically retrieves answers from a **vectorized Markdown résumé** (`resume_knowledge_base.md`) instead of static data.
+- Uses **semantic search** via ChromaDB and Sentence Transformers to deliver contextually accurate responses.
 
-* **Frontend**: Streamlit
-* **Backend**: Python
-* **Deployment**: Streamlit Cloud
-* **Integration**: Firebase, Groq API
+### 💬 Conversational Interface
+- Streamlit chat UI that feels natural, professional, and interactive.
+- Remembers short-term conversation context and summarizes long histories automatically.
 
-## Requirements
+### ⚙️ Smart Context Management
+- Keeps the last 8 messages in active context.
+- Summarizes longer conversations to reduce API usage and maintain context awareness.
 
-* Python 3.8+
-* See `requirements.txt` for dependencies
+### 🧠 Powered by Groq AI
+- Utilizes **Groq’s Llama 3.1-8B model** for fast, intelligent reasoning.
+- Dynamically constructs prompts based on retrieved résumé chunks.
 
-## Getting Started
+---
 
-1. Clone the repository: `git clone https://github.com/UPavankumar/Portfolio_Assistant.git`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Set up environment variables:
-	* Create a `.env` file with the following variables:
-		+ `GROQ_API_KEY=YOUR_GROQ_API_KEY`
-		+ `FIREBASE_PROJECT_ID=YOUR_FIREBASE_PROJECT_ID`
-		+ `FIREBASE_PRIVATE_KEY=YOUR_FIREBASE_PRIVATE_KEY`
-4. Set up Firebase:
-	* Create a Firebase project
-	* Enable Firestore database
-	* Set up Firebase Admin SDK
-5. Run the app locally: `streamlit run app.py`
+## 🧩 Tech Stack
 
-## Deployment
+| Layer | Technology |
+|-------|-------------|
+| **Frontend** | Streamlit |
+| **Backend** | Python |
+| **AI Models** | SentenceTransformers (`all-MiniLM-L6-v2`) |
+| **Vector DB** | Chroma |
+| **LLM API** | Groq API |
+| **Deployment** | Streamlit Cloud / Local |
+| **File-based KB** | Markdown résumé (`resume_knowledge_base.md`) |
 
-Deployed on Streamlit Cloud, integrated with Firebase portfolio and Groq API.
+---
 
-## How it Works
+## 🧰 Requirements
 
-1. User interacts with the chatbot interface
-2. Chatbot responds with relevant information from the portfolio using Groq API
-3. Data is retrieved from Firestore database
+- Python 3.8 or higher  
+- A valid **Groq API Key**
 
-## Contributing
-
-Feel free to fork the repository and submit pull requests. For major changes, please open an issue first to discuss what you'd like to change.
+Install dependencies:
+```bash
+pip install -r requirements.txt
