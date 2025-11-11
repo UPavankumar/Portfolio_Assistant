@@ -16,15 +16,17 @@ st.set_page_config(
 
 st.title("💼 Alfred — Pavan Kumar's Personal AI Assistant")
 
+# Debug mode toggle (set to False in production)
+DEBUG_MODE = st.sidebar.checkbox("🔧 Debug Mode", value=False)
+
 # =========================
 # Load API Key
 # =========================
 api_key = st.secrets.get("GROQ_API_KEY", None)
 if not api_key:
-    st.error("GROQ_API_KEY not found in Streamlit secrets. Please set it under App Settings → Secrets.")
+    st.error("GROQ_API_KEY not found in Streamlit secrets.")
     st.stop()
 
-# Initialize Groq client
 try:
     client = Groq(api_key=api_key)
 except Exception as e:
@@ -36,7 +38,6 @@ except Exception as e:
 # =========================
 @st.cache_resource
 def get_chroma_client():
-    """Initialize ChromaDB client"""
     try:
         return chromadb.PersistentClient(path="./chroma_db")
     except Exception as e:
@@ -47,7 +48,6 @@ chroma_client = get_chroma_client()
 
 @st.cache_resource
 def get_embeddings_model():
-    """Load sentence transformer model"""
     try:
         return SentenceTransformer("all-MiniLM-L6-v2")
     except Exception as e:
@@ -64,56 +64,35 @@ def classify_intent(query: str) -> str:
     query_lower = query.lower()
     
     intent_patterns = {
-        "experience": ["work", "job", "company", "companies", "employer", "position", "role", "worked", "career", "employment"],
-        "projects": ["project", "built", "created", "developed", "model", "application", "churn", "discord", "bot", "prediction"],
-        "skills": ["skill", "technology", "tech stack", "programming", "language", "tool", "knows", "proficient", "expertise", "can he"],
-        "education": ["study", "studied", "degree", "college", "university", "education", "graduated", "bachelor"],
-        "contact": ["contact", "email", "phone", "reach", "linkedin", "portfolio", "connect", "availability"],
-        "summary": ["who is", "about", "overview", "summary", "tell me about", "introduction", "background"],
+        "experience": ["work", "worked", "job", "company", "companies", "employer", "position", "role", "career", "employment", "places he worked", "where did he work"],
+        "projects": ["project", "projects", "built", "created", "developed", "model", "application", "churn", "discord", "bot", "prediction", "portfolio work"],
+        "skills": ["skill", "technology", "tech stack", "programming", "language", "tool", "knows", "proficient", "expertise", "can he", "technologies"],
+        "education": ["study", "studied", "degree", "college", "university", "education", "graduated", "bachelor", "school"],
+        "contact": ["contact", "email", "phone", "reach", "linkedin", "portfolio", "connect", "availability", "location"],
+        "summary": ["who is", "about", "overview", "summary", "tell me about", "introduction", "background", "all info", "everything"],
         "certifications": ["certification", "certified", "certificate", "course", "training"],
-        "achievements": ["achievement", "promotion", "award", "recognition", "accomplishment"],
+        "achievements": ["achievement", "promotion", "award", "recognition", "accomplishment", "notable"],
     }
     
-    # Score each intent
+    # Score each intent with weighted matching
     scores = {}
     for intent, keywords in intent_patterns.items():
-        scores[intent] = sum(2 if kw in query_lower else 0 for kw in keywords)
+        score = 0
+        for kw in keywords:
+            if kw in query_lower:
+                # Give higher weight to longer, more specific matches
+                score += len(kw.split()) * 2
+        scores[intent] = score
     
-    # Return highest scoring intent
     max_intent = max(scores, key=scores.get)
     return max_intent if scores[max_intent] > 0 else "general"
-
-def llm_classify_intent(query: str) -> str:
-    """Fallback: Use LLM for intent classification when rules fail"""
-    try:
-        intent_prompt = f"""Classify this question into ONE of these categories: experience, projects, skills, education, contact, summary, certifications, achievements, general
-
-Question: "{query}"
-
-Reply with ONLY the category name, nothing else."""
-
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": intent_prompt}],
-            temperature=0,
-            max_tokens=10,
-        )
-        
-        intent = response.choices[0].message.content.strip().lower()
-        valid_intents = ["experience", "projects", "skills", "education", "contact", "summary", "certifications", "achievements", "general"]
-        
-        return intent if intent in valid_intents else "general"
-    
-    except Exception as e:
-        st.warning(f"Intent classification failed: {e}")
-        return "general"
 
 # =========================
 # Load Resume File
 # =========================
 resume_path = Path("resume_knowledge_base.md")
 if not resume_path.exists():
-    st.error("Resume file (resume_knowledge_base.md) not found.")
+    st.error("Resume file not found.")
     st.stop()
 
 try:
@@ -123,46 +102,62 @@ except Exception as e:
     st.stop()
 
 # =========================
-# Smart Resume Chunking
+# Enhanced Section Parsing
 # =========================
 def parse_resume_sections(content: str) -> dict:
-    """Parse resume into sections with metadata"""
+    """Parse resume into sections with intelligent mapping"""
     sections = {}
     current_section = "header"
     current_content = []
     
     lines = content.split('\n')
     
+    # Section mapping rules
+    section_mapping = {
+        'work experience': 'experience',
+        'professional experience': 'experience',
+        'experience': 'experience',
+        'employment': 'experience',
+        'career': 'experience',
+        
+        'projects': 'projects',
+        'portfolio': 'projects',
+        
+        'skills': 'skills',
+        'technical skills': 'skills',
+        'expertise': 'skills',
+        'tools': 'skills',
+        
+        'education': 'education',
+        'academic': 'education',
+        
+        'certifications': 'certifications',
+        'certificates': 'certifications',
+        'training': 'certifications',
+        
+        'achievements': 'achievements',
+        'accomplishments': 'achievements',
+        
+        'contact': 'contact',
+        'personal information': 'contact',
+        
+        'summary': 'summary',
+        'professional summary': 'summary',
+        'about': 'summary',
+    }
+    
     for line in lines:
-        # Detect section headers
-        if line.startswith('##') and not line.startswith('###'):
+        # Detect section headers (## or ###)
+        if line.strip().startswith('##') and not line.strip().startswith('####'):
             # Save previous section
             if current_content:
                 sections[current_section] = '\n'.join(current_content)
             
-            # Start new section
+            # Extract and normalize section name
             section_name = line.replace('#', '').strip().lower()
             
-            # Map to standard intent categories
-            if 'experience' in section_name or 'work' in section_name:
-                current_section = 'experience'
-            elif 'project' in section_name:
-                current_section = 'projects'
-            elif 'skill' in section_name or 'technical' in section_name:
-                current_section = 'skills'
-            elif 'education' in section_name:
-                current_section = 'education'
-            elif 'certification' in section_name:
-                current_section = 'certifications'
-            elif 'achievement' in section_name:
-                current_section = 'achievements'
-            elif 'personal' in section_name or 'contact' in section_name:
-                current_section = 'contact'
-            elif 'summary' in section_name:
-                current_section = 'summary'
-            else:
-                current_section = section_name
-            
+            # Map to standard category
+            current_section = section_mapping.get(section_name, section_name)
             current_content = [line]
         else:
             current_content.append(line)
@@ -178,88 +173,101 @@ def parse_resume_sections(content: str) -> dict:
 # =========================
 @st.cache_resource
 def initialize_knowledge_base(_chroma_client, _embedding_model, resume_content):
-    """Initialize knowledge base with sectioned chunks and metadata"""
+    """Initialize knowledge base with properly sectioned chunks"""
     try:
         collection = _chroma_client.get_or_create_collection(
-            name="resume_knowledge_base",
+            name="resume_knowledge_base_v2",  # New version to force rebuild
             metadata={"hnsw:space": "cosine"}
         )
         
-        if collection.count() == 0:
-            sections = parse_resume_sections(resume_content)
-            
-            all_chunks = []
-            all_metadatas = []
-            
-            for section_name, section_content in sections.items():
-                # Split large sections into smaller chunks
-                if len(section_content) > 1000:
-                    # Split by paragraphs
-                    paragraphs = [p.strip() for p in section_content.split('\n\n') if p.strip()]
-                    for para in paragraphs:
-                        all_chunks.append(para)
-                        all_metadatas.append({
-                            "section": section_name,
-                            "char_count": len(para)
-                        })
-                else:
-                    all_chunks.append(section_content)
-                    all_metadatas.append({
-                        "section": section_name,
-                        "char_count": len(section_content)
-                    })
-            
-            # Generate embeddings
-            embeddings = _embedding_model.encode(all_chunks, show_progress_bar=False).tolist()
-            
-            # Add to collection
-            collection.add(
-                ids=[f"chunk_{i}" for i in range(len(all_chunks))],
-                embeddings=embeddings,
-                documents=all_chunks,
-                metadatas=all_metadatas
+        # Always rebuild for consistency
+        if collection.count() > 0:
+            _chroma_client.delete_collection("resume_knowledge_base_v2")
+            collection = _chroma_client.create_collection(
+                name="resume_knowledge_base_v2",
+                metadata={"hnsw:space": "cosine"}
             )
-            
-            st.success(f"✅ Initialized knowledge base with {len(all_chunks)} chunks across {len(sections)} sections")
         
-        return collection
+        sections = parse_resume_sections(resume_content)
+        
+        all_chunks = []
+        all_metadatas = []
+        all_ids = []
+        chunk_counter = 0
+        
+        for section_name, section_content in sections.items():
+            # Don't split - keep sections whole for better context
+            if section_content.strip():
+                all_chunks.append(section_content)
+                all_metadatas.append({
+                    "section": section_name,
+                    "char_count": len(section_content)
+                })
+                all_ids.append(f"{section_name}_{chunk_counter}")
+                chunk_counter += 1
+        
+        # Generate embeddings
+        embeddings = _embedding_model.encode(all_chunks, show_progress_bar=False).tolist()
+        
+        # Add to collection
+        collection.add(
+            ids=all_ids,
+            embeddings=embeddings,
+            documents=all_chunks,
+            metadatas=all_metadatas
+        )
+        
+        # Show sections found
+        section_list = list(sections.keys())
+        st.success(f"✅ Initialized with {len(all_chunks)} sections: {', '.join(section_list)}")
+        
+        return collection, sections
     
     except Exception as e:
         st.error(f"Failed to initialize knowledge base: {e}")
         st.stop()
 
-collection = initialize_knowledge_base(chroma_client, embedding_model, resume_text)
+collection, parsed_sections = initialize_knowledge_base(chroma_client, embedding_model, resume_text)
 
 # =========================
 # Smart Retrieval Function
 # =========================
-def smart_search(query: str, intent: str, top_k: int = 4) -> list:
-    """Search with intent-based filtering"""
+def smart_search(query: str, intent: str, top_k: int = 3) -> tuple:
+    """Search with intent-based filtering and fallback"""
     try:
         query_embedding = embedding_model.encode([query], show_progress_bar=False).tolist()
         
-        # If intent is specific, filter by section
+        retrieved_chunks = []
+        search_metadata = {"intent": intent, "filtered": False}
+        
+        # Try intent-filtered search first
         if intent != "general":
             results = collection.query(
                 query_embeddings=query_embedding,
                 n_results=top_k,
                 where={"section": intent}
             )
-        else:
-            # For general queries, search everything
+            
+            if results and results["documents"] and results["documents"][0]:
+                retrieved_chunks = results["documents"][0]
+                search_metadata["filtered"] = True
+        
+        # Fallback: search all if no results or general intent
+        if not retrieved_chunks:
             results = collection.query(
                 query_embeddings=query_embedding,
                 n_results=top_k
             )
+            
+            if results and results["documents"] and results["documents"][0]:
+                retrieved_chunks = results["documents"][0]
+                search_metadata["filtered"] = False
         
-        if results and "documents" in results and results["documents"]:
-            return results["documents"][0]
-        
-        return []
+        return retrieved_chunks, search_metadata
     
     except Exception as e:
         st.warning(f"Search error: {e}")
-        return []
+        return [], {"error": str(e)}
 
 # =========================
 # Initialize Session State
@@ -292,35 +300,42 @@ if user_input := st.chat_input("Your message to Alfred..."):
     # Step 1: Classify Intent
     intent = classify_intent(user_input)
     
-    # Fallback to LLM if needed
-    if intent == "general" and len(user_input.split()) > 3:
-        intent = llm_classify_intent(user_input)
+    if DEBUG_MODE:
+        st.sidebar.write(f"**Detected Intent:** `{intent}`")
     
     # Step 2: Smart Retrieval
-    relevant_chunks = smart_search(user_input, intent, top_k=4)
+    relevant_chunks, search_meta = smart_search(user_input, intent, top_k=3)
+    
+    if DEBUG_MODE:
+        st.sidebar.write(f"**Search Type:** {'Filtered' if search_meta.get('filtered') else 'Unfiltered'}")
+        st.sidebar.write(f"**Chunks Retrieved:** {len(relevant_chunks)}")
+        if relevant_chunks:
+            st.sidebar.write("**Preview:**")
+            st.sidebar.code(relevant_chunks[0][:200] + "...")
     
     if relevant_chunks:
-        resume_context = "\n\n---\n\n".join(relevant_chunks)
+        resume_context = "\n\n---SECTION BREAK---\n\n".join(relevant_chunks)
     else:
-        resume_context = "No specific information found in the résumé for this query."
+        resume_context = "I apologize, but I couldn't locate relevant information in Mr. Kumar's records."
     
     # Step 3: Build Enhanced System Prompt
     system_prompt = f"""You are Alfred Pennyworth, Mr. Pavan Kumar's distinguished personal assistant.
 
-Query Intent Detected: {intent.upper()}
+USER QUERY INTENT: {intent.upper()}
 
-Instructions:
-- Provide a precise, well-structured answer based ONLY on the résumé context below
-- If the query asks for multiple items (e.g., "list all companies"), enumerate them clearly
-- If information is missing, state: "I don't have that specific detail in Mr. Kumar's records"
-- Maintain a professional, refined tone
-- Synthesize information intelligently rather than quoting verbatim
+CRITICAL INSTRUCTIONS:
+1. Answer ONLY using the Résumé Context provided below
+2. If the query asks for a list (e.g., "list all projects"), enumerate ALL items clearly with bullet points
+3. For "experience" questions, list ALL companies, roles, and durations
+4. For "projects" questions, describe ALL projects with their key details
+5. If specific information is missing, state: "That detail is not specified in Mr. Kumar's records"
+6. Be comprehensive - don't summarize if the user asks for "all" or "list"
+7. Maintain Alfred's refined, professional tone
 
-Résumé Context:
+RÉSUMÉ CONTEXT:
 {resume_context}
 
-Recent Conversation:
-{' '.join([m['content'][:100] for m in st.session_state.messages[-4:-1]])}"""
+Respond now as Alfred would."""
 
     # Prepare API messages
     api_messages = [
@@ -337,8 +352,8 @@ Recent Conversation:
             completion = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=api_messages,
-                temperature=0.6,
-                max_tokens=700,
+                temperature=0.5,
+                max_tokens=1000,
                 top_p=0.9,
                 stream=True,
             )
@@ -358,6 +373,6 @@ Recent Conversation:
     # Add assistant response
     st.session_state.messages.append({"role": "assistant", "content": response_text})
     
-    # Trim history (keep last 20 messages)
+    # Trim history
     if len(st.session_state.messages) > 20:
         st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-19:]
