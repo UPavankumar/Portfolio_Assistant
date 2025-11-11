@@ -1,19 +1,20 @@
-# --- Core Streamlit App ---
-streamlit
-streamlit-chat
+# --- Streamlit App Core ---
+streamlit==1.24.1
+streamlit-chat==0.1.1
 
-# --- LLM Integration ---
-groq
-
-# --- Retrieval-Augmented Generation (RAG) ---
-chromadb==0.4.24          # Stable version (avoid latest API break)
+# --- AI / RAG Stack ---
+groq==0.1.0
+chromadb==0.4.24
 sentence-transformers==2.2.2
-python-dotenv
+transformers>=4.30.0
+torch>=2.0.0
+huggingface-hub>=0.22.2
+python-dotenv==1.0.0
 
-# --- Firebase Integration (optional but retained) ---
-google-cloud-firestore
-firebase-admin
+# --- Optional Firebase (if needed) ---
+firebase-admin==5.3.0
+google-cloud-firestore==2.11.0
 
 # --- Utilities ---
-requests
-pyspellchecker
+requests==2.31.0
+pyspellchecker==0.8.2
