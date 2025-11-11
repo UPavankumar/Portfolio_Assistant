@@ -1,7 +1,5 @@
 streamlit
-streamlit-chat
-google-cloud-firestore
-firebase-admin
-requests
 groq
-pyspellchecker
+chromadb
+sentence-transformers
+python-dotenv
