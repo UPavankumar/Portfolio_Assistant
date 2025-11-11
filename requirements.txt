@@ -1,23 +1,8 @@
-# --- Streamlit App Core ---
-streamlit>=1.28.0
-streamlit-chat>=0.1.1
-
-# --- AI / RAG Stack ---
-groq>=0.4.0
-chromadb>=0.4.22
-sentence-transformers>=2.2.2
-transformers>=4.35.0
-torch>=2.0.0
-huggingface-hub>=0.20.0
-
-# --- Data Processing ---
-pandas>=2.0.0
-numpy>=1.24.0
-
-# --- Utilities ---
-python-dotenv>=1.0.0
-requests>=2.31.0
-
-# --- Optional: Firebase (uncomment if needed) ---
-# firebase-admin>=6.0.0
-# google-cloud-firestore>=2.13.0
+streamlit==1.31.0
+groq==0.4.2
+sentence-transformers==2.3.1
+chromadb==0.4.22
+torch==2.1.2
+transformers==4.37.2
+numpy==1.24.3
+pandas==2.0.3
