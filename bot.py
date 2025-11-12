@@ -3,7 +3,11 @@ from groq import Groq
 import os
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Pavan's Assistant", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Pavan's Assistant",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
 # --- API KEY SETUP ---
 api_key = st.secrets.get("GROQ_API_KEY")
@@ -24,7 +28,13 @@ with col1:
 with col2:
     if st.button("🔄 New Chat"):
         st.session_state.clear()
-        st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+        st.session_state.messages = [{
+            "role": "assistant",
+            "content": (
+                "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. "
+                "May I have the pleasure of knowing your name?"
+            )
+        }]
         st.rerun()
 
 # --- LOAD KNOWLEDGE BASE (EXTERNAL FILE) ---
@@ -42,11 +52,17 @@ resume_knowledge_base = load_resume_knowledge_base()
 
 # --- SESSION STATE ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+    st.session_state.messages = [{
+        "role": "assistant",
+        "content": (
+            "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. "
+            "May I have the pleasure of knowing your name?"
+        )
+    }]
 if "user_name" not in st.session_state:
     st.session_state.user_name = None
 
-# --- SYSTEM PROMPT (OPTIMIZED) ---
+# --- SYSTEM PROMPT ---
 SYSTEM_PROMPT = """
 You are Alfred Pennyworth, Mr. Pavan Kumar's professional AI assistant — analytical, articulate, and composed.
 Speak like a seasoned British advisor: concise (2–4 sentences), insightful, and respectful.
@@ -55,14 +71,11 @@ Rules:
 1. Address user by name if provided.
 2. Never exceed 4 sentences unless user asks for detail.
 3. Maintain warm professionalism and authority.
-4. Base insights on Pavan Kumar’s resume summary (provided below).
+4. Use résumé context only when relevant.
 
-Knowledge Base Context Summary:
+Résumé Summary Context:
 Mr. Pavan Kumar — Business Analyst, Data & AI Professional skilled in Python, SQL, Power BI, RPA, ML frameworks, and automation.
 Currently at Envision Beyond, with prior roles in analytics and research. Strong in IBM Watsonx, workflow automation, and data integration.
-
-Use this summary instead of full résumé for normal replies.
-If user asks about career, skills, or experience — refer to the full Markdown file and summarize selectively.
 """
 
 # --- RESPONSE FUNCTION ---
@@ -71,15 +84,22 @@ def get_response(user_input):
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    # Append prior conversation
+    # Append conversation history (excluding system prompts)
     for msg in st.session_state.messages:
         if msg.get("role") != "system":
             messages.append(msg)
 
-    # Append new input
+    # Count user messages to determine when to refresh résumé
+    user_message_count = len([m for m in st.session_state.messages if m["role"] == "user"])
+
+    # Inject full résumé context every 5 prompts
+    if user_message_count % 5 == 0 and user_message_count != 0:
+        messages.insert(1, {"role": "system", "content": f"Full résumé reference:\n{resume_knowledge_base}"})
+
+    # Add the new user input
     messages.append({"role": "user", "content": user_input})
 
-    # Handle name extraction
+    # Extract name if provided
     lower_input = user_input.lower()
     name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
     for ind in name_indicators:
@@ -114,16 +134,19 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
+# --- USER INPUT ---
 if user_input := st.chat_input("Your message to Alfred..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
+
+    # Display user message
     with st.chat_message("user"):
         st.markdown(user_input)
 
+    # Get assistant response
     with st.chat_message("assistant"):
         msg_placeholder = st.empty()
-        response_text = ""
-
         response_text = get_response(user_input)
         msg_placeholder.markdown(response_text)
 
+    # Store assistant response
     st.session_state.messages.append({"role": "assistant", "content": response_text})
