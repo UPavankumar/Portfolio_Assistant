@@ -4,12 +4,3 @@ streamlit==1.24.1
 # --- AI / LLM Stack ---
 groq==0.9.0
 
-# --- Optional: Advanced Features (Vector Search & Embeddings) ---
-# These are optional - app will work without them with graceful fallback
-chromadb==0.4.24
-sentence-transformers==2.2.2
-transformers>=4.30.0
-torch>=2.0.0
-
-# --- Utilities ---
-python-dotenv==1.0.0
