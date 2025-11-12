@@ -5,7 +5,7 @@ import chromadb
 from pathlib import Path
 import json
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import os
 import hashlib
@@ -14,111 +14,159 @@ import hashlib
 # Configuration
 # =========================
 st.set_page_config(
-    page_title="💼 Alfred — Pavan Kumar's AI Assistant",
+    page_title="💼 Alfred — Pavan Kumar's Personal AI Assistant",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
 st.markdown("""<style>
 .stChatMessage {padding: 1rem; border-radius: 0.5rem;}
 </style>""", unsafe_allow_html=True)
 
-st.title("💼 Alfred — Pavan Kumar's AI Assistant")
-
 # =========================
-# Initialize Session State - FIRST THING
+# Initialize Session State FIRST
 # =========================
-if "messages" not in st.session_state:
+if 'messages' not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. How may I assist you today?"
+        "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"
     }]
 
-if "session_summary" not in st.session_state:
-    st.session_state.session_summary = ""
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = None
 
-if "last_intent" not in st.session_state:
+if 'last_intent' not in st.session_state:
     st.session_state.last_intent = None
 
-if "context_topics" not in st.session_state:
+if 'context_topics' not in st.session_state:
     st.session_state.context_topics = []
 
-if "interaction_mode" not in st.session_state:
+if 'interaction_mode' not in st.session_state:
     st.session_state.interaction_mode = "balanced"
 
-if "user_name" not in st.session_state:
-    st.session_state.user_name = "Guest"
+if 'session_summary' not in st.session_state:
+    st.session_state.session_summary = ""
 
 # =========================
-# Simple Sidebar
+# Header with Reset Button
 # =========================
-with st.sidebar:
-    st.header("🎛️ Controls")
-    
-    user_name = st.text_input("Your Name", value=st.session_state.user_name, key="user_input")
-    st.session_state.user_name = user_name
-    
-    mode = st.selectbox(
-        "Mode",
-        ["concise", "balanced", "detailed"],
-        index=["concise", "balanced", "detailed"].index(st.session_state.interaction_mode),
-        key="mode_select"
-    )
-    st.session_state.interaction_mode = mode
-    
-    if st.button("🔄 Reset Chat", key="reset_btn"):
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.title("💼 Alfred — Pavan Kumar's AI Assistant")
+with col2:
+    if st.button("🔄 Reset", help="Start fresh conversation"):
         st.session_state.messages = [{
             "role": "assistant",
-            "content": "Good day. I am Alfred, Mr. Pavan Kumar's personal AI assistant. How may I assist you today?"
+            "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"
         }]
-        st.session_state.session_summary = ""
+        st.session_state.user_name = None
         st.session_state.last_intent = None
         st.session_state.context_topics = []
+        st.session_state.session_summary = ""
         st.rerun()
 
 # =========================
-# Initialize Clients with Error Handling
+# Sidebar
+# =========================
+with st.sidebar:
+    st.header("🎛️ Alfred Controls")
+    
+    st.subheader("👤 Identity")
+    if st.session_state.user_name:
+        st.success(f"Hello, {st.session_state.user_name}!")
+    else:
+        st.info("Name not yet provided")
+    
+    st.subheader("💬 Mode")
+    mode = st.selectbox(
+        "Response Style",
+        ["concise", "balanced", "detailed"],
+        index=["concise", "balanced", "detailed"].index(st.session_state.interaction_mode)
+    )
+    st.session_state.interaction_mode = mode
+    
+    st.subheader("📊 Session Info")
+    st.caption(f"Messages: {len(st.session_state.messages)-1}")
+    if st.session_state.last_intent:
+        st.caption(f"Context: {st.session_state.last_intent.title()}")
+    if st.session_state.session_summary:
+        with st.expander("Session Summary"):
+            st.caption(st.session_state.session_summary)
+
+# =========================
+# Initialize Groq Client
+# =========================
+api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+if not api_key:
+    st.error("⚠️ GROQ_API_KEY not found")
+    st.stop()
+
+try:
+    client = Groq(api_key=api_key)
+except Exception as e:
+    st.error(f"❌ Failed to initialize Groq: {e}")
+    st.stop()
+
+# =========================
+# Optional: Initialize Advanced Features
 # =========================
 @st.cache_resource
-def get_clients():
+def get_embeddings_model():
     try:
-        # Groq client
-        api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-        if not api_key:
-            st.error("⚠️ GROQ_API_KEY not found")
-            st.stop()
-        groq_client = Groq(api_key=api_key)
-        
-        # ChromaDB
-        chroma_client = chromadb.PersistentClient(path="./chroma_db")
-        
-        # Embeddings
-        embeddings = SentenceTransformer("all-MiniLM-L6-v2")
-        
-        return groq_client, chroma_client, embeddings
-    
-    except Exception as e:
-        st.error(f"❌ Initialization failed: {str(e)}")
-        st.stop()
+        return SentenceTransformer("all-MiniLM-L6-v2")
+    except:
+        return None
 
-client, chroma_client, embedding_model = get_clients()
+@st.cache_resource
+def get_chroma_client():
+    try:
+        return chromadb.PersistentClient(path="./chroma_db")
+    except:
+        return None
+
+embedding_model = get_embeddings_model()
+chroma_client = get_chroma_client()
 
 # =========================
 # Load Resume
 # =========================
 resume_path = Path("resume_knowledge_base.md")
-if not resume_path.exists():
-    st.error("❌ resume_knowledge_base.md not found")
-    st.stop()
-
-resume_text = resume_path.read_text(encoding="utf-8")
-resume_hash = hashlib.md5(resume_text.encode()).hexdigest()
+if resume_path.exists():
+    resume_text = resume_path.read_text(encoding="utf-8")
+    resume_hash = hashlib.md5(resume_text.encode()).hexdigest()
+else:
+    resume_text = """**Pavan Kumar's Resume Knowledge Base**
+**Personal Information**:
+- Name: Pavan Kumar
+- Location: Bengaluru, India
+- Contact: +91-8050737339, u.pavankumar2002@gmail.com
+- LinkedIn: linkedin.com/in/u-pavankumar
+- Portfolio: portfolio-u-pavankumar.web.app
+**Professional Summary**:
+- Business Analyst and Data Professional with expertise in AI automation, workflow integration, database management, and data analytics.
+**Skills**:
+- Programming: Python, SQL, R, Flutter
+- AI & Automation: IBM Watsonx, IBM RPA, UIPath, N8n
+- Machine Learning: Scikit-learn, TensorFlow, PyTorch
+- Data Visualization: Power BI, Tableau
+**Work Experience**:
+**Business Analyst** - Envision Beyond, Bengaluru (Oct 2025 - Present)
+- Double promoted, skipping Associate level
+- AI & Automation with IBM Watsonx and RPA
+- Database management with PostgreSQL
+- Flutter app development
+**Data Analyst Consultant** - Spire Technologies (Sept 2024 - Jan 2025)
+- Built data pipelines with Python and SQL
+- Designed Power BI dashboards
+**Education**:
+- B.E. in Computer Science (Data Science), MVJ College of Engineering"""
+    resume_hash = ""
 
 # =========================
-# Structured Data
+# Structured Data Extraction (Optional)
 # =========================
 @st.cache_data
-def get_structured_data(resume_content: str, content_hash: str) -> Dict:
+def extract_structured_data(resume_content: str, content_hash: str) -> Dict:
     cache_file = Path("structured_resume_cache.json")
     
     if cache_file.exists():
@@ -130,53 +178,25 @@ def get_structured_data(resume_content: str, content_hash: str) -> Dict:
         except:
             pass
     
-    try:
-        prompt = f"""Extract info from this résumé as JSON:
+    return {
+        "experience": [],
+        "projects": [],
+        "skills": {},
+        "education": [],
+        "contact": {},
+        "summary": ""
+    }
 
-{{
-  "experience": [{{"company": "X", "role": "Y", "duration": "Z", "location": "L", "highlights": ["h1"]}}],
-  "projects": [{{"name": "P", "description": "D", "technologies": ["t1"], "achievements": ["a1"]}}],
-  "skills": {{"programming": ["Python"], "tools": ["Tool1"]}},
-  "education": [{{"degree": "D", "field": "F", "institution": "I", "location": "L"}}],
-  "certifications": [{{"name": "C", "issuer": "I", "year": "Y"}}],
-  "achievements": ["A1"],
-  "contact": {{"name": "N", "email": "E", "phone": "P", "location": "L", "linkedin": "L"}},
-  "summary": "Summary text"
-}}
-
-RÉSUMÉ:
-{resume_content}
-
-JSON only:"""
-
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=3000
-        )
-        
-        json_text = response.choices[0].message.content.strip()
-        json_text = re.sub(r'^```json\s*', '', json_text)
-        json_text = re.sub(r'\s*```$', '', json_text).strip()
-        
-        data = json.loads(json_text)
-        
-        with open(cache_file, 'w') as f:
-            json.dump({"hash": content_hash, "data": data}, f)
-        
-        return data
-    
-    except:
-        return {"experience": [], "projects": [], "skills": {}, "education": [], "certifications": [], "achievements": [], "contact": {}, "summary": ""}
-
-structured_data = get_structured_data(resume_text, resume_hash)
+structured_data = extract_structured_data(resume_text, resume_hash)
 
 # =========================
-# Vector DB
+# Vector DB (Optional)
 # =========================
 @st.cache_resource
-def get_vector_db(_chroma_client, _embedding_model, resume_content: str, content_hash: str):
+def get_vector_collection(_chroma_client, _embedding_model, resume_content: str, content_hash: str):
+    if not _chroma_client or not _embedding_model:
+        return None
+    
     collection_name = "alfred_kb"
     
     try:
@@ -191,37 +211,39 @@ def get_vector_db(_chroma_client, _embedding_model, resume_content: str, content
     except:
         pass
     
-    collection = _chroma_client.create_collection(
-        name=collection_name,
-        metadata={"hash": content_hash}
-    )
-    
-    # Simple section parsing
-    sections = []
-    current_section = []
-    
-    for line in resume_content.split('\n'):
-        if line.startswith('##') and not line.startswith('###'):
-            if current_section:
-                sections.append('\n'.join(current_section))
-            current_section = [line]
-        else:
-            current_section.append(line)
-    
-    if current_section:
-        sections.append('\n'.join(current_section))
-    
-    if sections:
-        embeddings = _embedding_model.encode(sections, show_progress_bar=False).tolist()
-        collection.add(
-            ids=[f"sec_{i}" for i in range(len(sections))],
-            documents=sections,
-            embeddings=embeddings
+    try:
+        collection = _chroma_client.create_collection(
+            name=collection_name,
+            metadata={"hash": content_hash}
         )
-    
-    return collection
+        
+        sections = []
+        current_section = []
+        
+        for line in resume_content.split('\n'):
+            if line.startswith('**') and line.endswith('**:'):
+                if current_section:
+                    sections.append('\n'.join(current_section))
+                current_section = [line]
+            else:
+                current_section.append(line)
+        
+        if current_section:
+            sections.append('\n'.join(current_section))
+        
+        if sections:
+            embeddings = _embedding_model.encode(sections, show_progress_bar=False).tolist()
+            collection.add(
+                ids=[f"sec_{i}" for i in range(len(sections))],
+                documents=sections,
+                embeddings=embeddings
+            )
+        
+        return collection
+    except:
+        return None
 
-collection = get_vector_db(chroma_client, embedding_model, resume_text, resume_hash)
+collection = get_vector_collection(chroma_client, embedding_model, resume_text, resume_hash)
 
 # =========================
 # Intent Classification
@@ -229,198 +251,211 @@ collection = get_vector_db(chroma_client, embedding_model, resume_text, resume_h
 def classify_intent(query: str, last_intent: Optional[str]) -> str:
     q = query.lower()
     
-    if any(p in q for p in ['tell me more', 'what about', 'also', 'and']) and last_intent:
+    # Follow-ups
+    if any(p in q for p in ['tell me more', 'what about', 'also', 'and', 'more']) and last_intent:
         return last_intent
     
-    if any(w in q for w in ['work', 'job', 'company', 'employer', 'role', 'career']):
+    # Keywords
+    if any(w in q for w in ['work', 'job', 'company', 'employer', 'experience', 'career']):
         return 'experience'
     if any(w in q for w in ['project', 'built', 'created', 'developed']):
         return 'projects'
-    if any(w in q for w in ['skill', 'technology', 'tech', 'programming']):
+    if any(w in q for w in ['skill', 'technology', 'tech', 'programming', 'tool']):
         return 'skills'
     if any(w in q for w in ['education', 'degree', 'college', 'university']):
         return 'education'
-    if any(w in q for w in ['certification', 'certificate', 'certified']):
-        return 'certifications'
-    if any(w in q for w in ['achievement', 'accomplishment', 'award']):
-        return 'achievements'
-    if any(w in q for w in ['contact', 'email', 'phone', 'linkedin']):
+    if any(w in q for w in ['contact', 'email', 'phone', 'linkedin', 'reach']):
         return 'contact'
     
-    return 'summary'
+    return 'general'
 
 # =========================
-# Formatters
+# Enhanced Context Search (Optional)
 # =========================
-def format_experience(exp_list: List[Dict]) -> str:
-    if not exp_list:
-        return "No experience information available."
-    result = "**Professional Experience:**\n\n"
-    for exp in exp_list:
-        result += f"### {exp.get('role', 'N/A')} at {exp.get('company', 'N/A')}\n"
-        result += f"📍 {exp.get('location', 'N/A')} | 📅 {exp.get('duration', 'N/A')}\n\n"
-        if exp.get('highlights'):
-            for h in exp['highlights']:
-                result += f"• {h}\n"
-            result += "\n"
-    return result
-
-def format_projects(proj_list: List[Dict]) -> str:
-    if not proj_list:
-        return "No projects available."
-    result = "**Projects:**\n\n"
-    for proj in proj_list:
-        result += f"### {proj.get('name', 'N/A')}\n"
-        result += f"{proj.get('description', 'N/A')}\n\n"
-        if proj.get('technologies'):
-            result += f"**Tech:** {', '.join(proj['technologies'])}\n\n"
-    return result
-
-def format_skills(skills_dict: Dict) -> str:
-    if not skills_dict:
-        return "No skills available."
-    result = "**Technical Skills:**\n\n"
-    for category, skills in skills_dict.items():
-        if skills:
-            result += f"**{category.replace('_', ' ').title()}:** {', '.join(skills)}\n\n"
-    return result
-
-def format_contact(contact_dict: Dict) -> str:
-    if not contact_dict:
-        return "Contact information not available."
-    result = "**Contact:**\n\n"
-    result += f"📧 {contact_dict.get('email', 'N/A')}\n"
-    result += f"📱 {contact_dict.get('phone', 'N/A')}\n"
-    result += f"📍 {contact_dict.get('location', 'N/A')}\n"
-    result += f"💼 {contact_dict.get('linkedin', 'N/A')}\n"
-    return result
-
-def format_list(items: List) -> str:
-    if not items:
-        return "No information available."
-    result = ""
-    for item in items:
-        if isinstance(item, dict):
-            result += f"• {item.get('name', str(item))}\n"
-        else:
-            result += f"• {item}\n"
-    return result
-
-# =========================
-# Search
-# =========================
-def search(query: str, intent: str, structured: Dict) -> str:
-    # Try structured first
-    if intent == 'experience' and structured.get('experience'):
-        return format_experience(structured['experience'])
-    elif intent == 'projects' and structured.get('projects'):
-        return format_projects(structured['projects'])
-    elif intent == 'skills' and structured.get('skills'):
-        return format_skills(structured['skills'])
-    elif intent == 'contact' and structured.get('contact'):
-        return format_contact(structured['contact'])
-    elif intent == 'certifications' and structured.get('certifications'):
-        return format_list(structured['certifications'])
-    elif intent == 'achievements' and structured.get('achievements'):
-        return format_list(structured['achievements'])
-    elif intent == 'education' and structured.get('education'):
-        return format_list(structured['education'])
-    elif intent == 'summary' and structured.get('summary'):
-        return structured['summary']
+def get_enhanced_context(query: str, intent: str) -> str:
+    if collection and embedding_model:
+        try:
+            query_emb = embedding_model.encode([query], show_progress_bar=False).tolist()
+            results = collection.query(query_embeddings=query_emb, n_results=2)
+            if results and results['documents'] and results['documents'][0]:
+                return '\n\n'.join(results['documents'][0])
+        except:
+            pass
     
-    # Vector search
-    try:
-        query_emb = embedding_model.encode([query], show_progress_bar=False).tolist()
-        results = collection.query(query_embeddings=query_emb, n_results=2)
-        if results and results['documents'] and results['documents'][0]:
-            return '\n\n'.join(results['documents'][0])
-    except:
-        pass
+    return resume_text[:3000]  # Fallback to full text
+
+# =========================
+# Name Extraction
+# =========================
+def extract_name(user_input: str) -> Optional[str]:
+    lower_input = user_input.lower()
+    name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
     
-    return "Information not available in records."
+    for indicator in name_indicators:
+        if indicator in lower_input:
+            parts = lower_input.split(indicator, 1)
+            if len(parts) > 1:
+                potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
+                if potential_name and len(potential_name) > 1:
+                    extracted_name = potential_name.capitalize()
+                    extracted_name = extracted_name.rstrip('.,!?;:')
+                    return extracted_name
+    
+    return None
 
 # =========================
 # Display Messages
 # =========================
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 # =========================
 # Chat Input
 # =========================
-user_input = st.chat_input("Your message...")
-
-if user_input:
+if user_input := st.chat_input("Your message to Alfred..."):
+    
     # Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
     
-    # Get intent
+    # Extract name if provided
+    extracted_name = extract_name(user_input)
+    if extracted_name and extracted_name != st.session_state.user_name:
+        st.session_state.user_name = extracted_name
+    
+    # Classify intent
     intent = classify_intent(user_input, st.session_state.last_intent)
     st.session_state.last_intent = intent
     
-    # Search
-    context = search(user_input, intent, structured_data)
+    if intent not in st.session_state.context_topics:
+        st.session_state.context_topics.append(intent)
+    st.session_state.context_topics = st.session_state.context_topics[-5:]
+    
+    # Get context
+    context = get_enhanced_context(user_input, intent)
     
     # Mode instructions
-    mode_inst = {
-        "concise": "Be brief. 2-3 sentences max.",
-        "balanced": "Clear, structured responses.",
-        "detailed": "Comprehensive explanations."
+    mode_instructions = {
+        "concise": "Keep responses brief (2-3 sentences maximum) unless user asks for details.",
+        "balanced": "Provide clear, well-structured responses with key details.",
+        "detailed": "Give comprehensive explanations with context and examples."
     }
     
+    # Build conversation context
+    recent_context = ""
+    if len(st.session_state.messages) > 1:
+        recent_messages = st.session_state.messages[-7:-1]  # Last 3 exchanges
+        if recent_messages:
+            recent_context = "\n\nRECENT CONVERSATION:\n" + "\n".join([
+                f"{msg['role'].upper()}: {msg['content'][:100]}"
+                for msg in recent_messages
+            ])
+    
     # System prompt
-    system_prompt = f"""You are Alfred, Mr. Pavan Kumar's AI assistant.
+    system_prompt = f"""You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains.
 
-User: {st.session_state.user_name}
-Mode: {mode_inst[st.session_state.interaction_mode]}
+CRITICAL INSTRUCTIONS:
+{mode_instructions[st.session_state.interaction_mode]}
 
-Use ONLY this context:
+YOUR CHARACTER:
+- Speak with quiet authority and confidence, like a trusted senior advisor
+- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely"
+- Balance warmth with gravitas—approachable yet commanding respect
+- Be direct and purposeful; your words carry weight
+- NEVER be condescending or dismissive
+- Treat every user with utmost dignity and courtesy
+
+CURRENT USER:
+Name: {st.session_state.user_name if st.session_state.user_name else "Not yet provided"}
+Current Query Intent: {intent.upper()}
+
+NAME TRACKING:
+- When user provides their name, acknowledge it warmly and use it naturally
+- If they correct their name, gracefully acknowledge: "My apologies, [New Name]. I shall address you correctly from now on."
+- Use their name naturally in responses for personalization
+{recent_context}
+
+KNOWLEDGE BASE:
 {context}
 
-Be professional and direct."""
+Respond as Alfred would—professional, insightful, and commanding."""
 
-    # Generate response
-    assistant_message = ""
-    
-    try:
-        with st.chat_message("assistant"):
-            placeholder = st.empty()
+    # Generate response with streaming
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        
+        try:
+            # Build messages for API
+            messages = [{"role": "system", "content": system_prompt}]
             
-            stream = client.chat.completions.create(
+            # Add recent message history (last 6 messages)
+            for msg in st.session_state.messages[-7:-1]:
+                if msg.get("role") != "system":
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            # Add current user input
+            messages.append({"role": "user", "content": user_input})
+            
+            # Stream response
+            completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_input}
-                ],
-                temperature=0.6,
-                max_tokens=1000,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=800,
+                top_p=0.9,
                 stream=True
             )
             
-            for chunk in stream:
+            for chunk in completion:
                 if chunk.choices[0].delta.content:
-                    assistant_message += chunk.choices[0].delta.content
-                    placeholder.markdown(assistant_message + "▌")
+                    full_response += chunk.choices[0].delta.content
+                    message_placeholder.markdown(full_response + "▌")
             
-            placeholder.markdown(assistant_message)
+            message_placeholder.markdown(full_response)
+        
+        except Exception as e:
+            full_response = f"My apologies. A slight technical complication has arisen: {str(e)[:100]}. Might I suggest trying again?"
+            message_placeholder.markdown(full_response)
     
-    except Exception as e:
-        assistant_message = f"I apologize, I'm experiencing a technical issue. Error: {str(e)[:100]}"
-        with st.chat_message("assistant"):
-            st.markdown(assistant_message)
-    
-    # Save message
-    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
+    # Save assistant response
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
     
     # Trim history
     if len(st.session_state.messages) > 30:
         st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-24:]
+    
+    # Periodic summarization (every 12 messages)
+    if len(st.session_state.messages) > 12 and len(st.session_state.messages) % 12 == 0:
+        try:
+            old_messages = st.session_state.messages[1:-6]
+            if old_messages:
+                summary_text = "\n".join([f"{msg['role']}: {msg['content'][:80]}" for msg in old_messages[-10:]])
+                
+                summary_response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{
+                        "role": "user",
+                        "content": f"Summarize this conversation in 2 sentences:\n{summary_text}"
+                    }],
+                    temperature=0.3,
+                    max_tokens=100
+                )
+                st.session_state.session_summary = summary_response.choices[0].message.content.strip()
+        except:
+            pass
 
 # =========================
 # Footer
 # =========================
 st.markdown("---")
-st.caption(f"💬 {st.session_state.interaction_mode.title()} Mode | 📊 {len(st.session_state.messages)-1} messages")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.caption(f"💬 {st.session_state.interaction_mode.title()} Mode")
+with col2:
+    st.caption(f"📊 {len(st.session_state.messages)-1} messages")
+with col3:
+    if st.session_state.last_intent:
+        st.caption(f"🎯 {st.session_state.last_intent.title()}")
