@@ -1,6 +1,7 @@
-# --- Streamlit App Core ---
-streamlit==1.24.1
-
-# --- AI / LLM Stack ---
-groq==0.9.0
-
+streamlit
+streamlit-chat
+google-cloud-firestore
+firebase-admin
+requests
+groq
+pyspellchecker
