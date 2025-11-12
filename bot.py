@@ -1,461 +1,329 @@
 import streamlit as st
 from groq import Groq
-from sentence_transformers import SentenceTransformer
-import chromadb
-from pathlib import Path
-import json
-import re
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
-import os
-import hashlib
 
-# =========================
-# Configuration
-# =========================
-st.set_page_config(
-    page_title="💼 Alfred — Pavan Kumar's Personal AI Assistant",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
-
-st.markdown("""<style>
-.stChatMessage {padding: 1rem; border-radius: 0.5rem;}
-</style>""", unsafe_allow_html=True)
-
-# =========================
-# Initialize Session State FIRST
-# =========================
-if 'messages' not in st.session_state:
-    st.session_state.messages = [{
-        "role": "assistant",
-        "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"
-    }]
-
-if 'user_name' not in st.session_state:
-    st.session_state.user_name = None
-
-if 'last_intent' not in st.session_state:
-    st.session_state.last_intent = None
-
-if 'context_topics' not in st.session_state:
-    st.session_state.context_topics = []
-
-if 'interaction_mode' not in st.session_state:
-    st.session_state.interaction_mode = "balanced"
-
-if 'session_summary' not in st.session_state:
-    st.session_state.session_summary = ""
-
-# =========================
-# Header with Reset Button
-# =========================
-col1, col2 = st.columns([4, 1])
-with col1:
-    st.title("💼 Alfred — Pavan Kumar's AI Assistant")
-with col2:
-    if st.button("🔄 Reset", help="Start fresh conversation"):
-        st.session_state.messages = [{
-            "role": "assistant",
-            "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"
-        }]
-        st.session_state.user_name = None
-        st.session_state.last_intent = None
-        st.session_state.context_topics = []
-        st.session_state.session_summary = ""
-        st.rerun()
-
-# =========================
-# Sidebar
-# =========================
-with st.sidebar:
-    st.header("🎛️ Alfred Controls")
-    
-    st.subheader("👤 Identity")
-    if st.session_state.user_name:
-        st.success(f"Hello, {st.session_state.user_name}!")
-    else:
-        st.info("Name not yet provided")
-    
-    st.subheader("💬 Mode")
-    mode = st.selectbox(
-        "Response Style",
-        ["concise", "balanced", "detailed"],
-        index=["concise", "balanced", "detailed"].index(st.session_state.interaction_mode)
-    )
-    st.session_state.interaction_mode = mode
-    
-    st.subheader("📊 Session Info")
-    st.caption(f"Messages: {len(st.session_state.messages)-1}")
-    if st.session_state.last_intent:
-        st.caption(f"Context: {st.session_state.last_intent.title()}")
-    if st.session_state.session_summary:
-        with st.expander("Session Summary"):
-            st.caption(st.session_state.session_summary)
-
-# =========================
-# Initialize Groq Client
-# =========================
-api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+api_key = st.secrets["GROQ_API_KEY"]
 if not api_key:
-    st.error("⚠️ GROQ_API_KEY not found")
+    st.error("API key is missing. Please set it.")
     st.stop()
 
+# Initialize Groq client
 try:
     client = Groq(api_key=api_key)
 except Exception as e:
-    st.error(f"❌ Failed to initialize Groq: {e}")
+    st.error(f"Failed to initialize Groq client: {e}")
     st.stop()
 
-# =========================
-# Optional: Initialize Advanced Features
-# =========================
-@st.cache_resource
-def get_embeddings_model():
-    try:
-        return SentenceTransformer("all-MiniLM-L6-v2")
-    except:
-        return None
+# Set page title and layout
+st.set_page_config(page_title="Pavan's Assistant", layout="centered", initial_sidebar_state="collapsed")
 
-@st.cache_resource
-def get_chroma_client():
-    try:
-        return chromadb.PersistentClient(path="./chroma_db")
-    except:
-        return None
+# Title and reset button in columns
+col1, col2 = st.columns([4, 1])
+with col1:
+    st.title("Chat with Alfred")
+with col2:
+    if st.button("🔄 New Chat", help="Start a fresh conversation"):
+        st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+        st.session_state.user_name = None
+        st.rerun()
 
-embedding_model = get_embeddings_model()
-chroma_client = get_chroma_client()
-
-# =========================
-# Load Resume
-# =========================
-resume_path = Path("resume_knowledge_base.md")
-if resume_path.exists():
-    resume_text = resume_path.read_text(encoding="utf-8")
-    resume_hash = hashlib.md5(resume_text.encode()).hexdigest()
-else:
-    resume_text = """**Pavan Kumar's Resume Knowledge Base**
+# Resume knowledge base
+resume_knowledge_base = """
+**Pavan Kumar's Resume Knowledge Base**
 **Personal Information**:
 - Name: Pavan Kumar
 - Location: Bengaluru, India
 - Contact: +91-8050737339, u.pavankumar2002@gmail.com
 - LinkedIn: linkedin.com/in/u-pavankumar
 - Portfolio: portfolio-u-pavankumar.web.app
+- Relocation: Fully flexible for relocation nationwide (India) no assistance required.
+- Work Preference: Open to remote, hybrid, or on-site roles.
+- Availability: Available to start immediately.
 **Professional Summary**:
-- Business Analyst and Data Professional with expertise in AI automation, workflow integration, database management, and data analytics.
+- Business Analyst and Data Professional with expertise in AI automation, workflow integration, database management, and data analytics. Proficient in Python, SQL, Power BI, IBM Watsonx, RPA, and full-stack development.
 **Skills**:
 - Programming: Python, SQL, R, Flutter
-- AI & Automation: IBM Watsonx, IBM RPA, UIPath, N8n
+- AI & Automation: IBM Watsonx Code Assistant, IBM RPA, UIPath, N8n
 - Machine Learning: Scikit-learn, TensorFlow, PyTorch
 - Data Visualization: Power BI, Tableau
+- Data Analysis: Pandas, NumPy, Matplotlib, Seaborn
+- AI/ML: Natural Language Processing, Computer Vision
+- Integration: IBM API Connect, PostgreSQL, MongoDB, AWS
+- Chatbot Development: Tawk Chat Portal, AI-powered bots
 **Work Experience**:
-**Business Analyst** - Envision Beyond, Bengaluru (Oct 2025 - Present)
-- Double promoted, skipping Associate level
-- AI & Automation with IBM Watsonx and RPA
-- Database management with PostgreSQL
-- Flutter app development
-**Data Analyst Consultant** - Spire Technologies (Sept 2024 - Jan 2025)
-- Built data pipelines with Python and SQL
-- Designed Power BI dashboards
+**Business Analyst**
+Envision Beyond - Bengaluru, India (Hybrid)
+Oct 2025 - Present
+Previous: Business Analyst Trainee (Jun 2025 - Oct 2025)
+*Double promoted to Business Analyst, skipping Associate level, in recognition of exceptional performance and contributions*
+AI & Automation:
+- Utilized IBM Watsonx Code Assistant for AI-powered code generation and development acceleration
+- Converted UIPath workflows to IBM RPA, streamlining automation processes
+- Designed and implemented APIs using IBM API Connect for enterprise integration
+Database & App Development:
+- Gained expertise in PostgreSQL database management and optimization
+- Developed Ping App and full-stack login page using Flutter framework
+Workflow & Integration:
+- Automated ticket extraction and inbound lead management using N8n workflow automation
+- Set up Tawk Chat Portal with AI and live chat support integration
+- Implemented appointment scheduling and booking systems
+- Built intelligent chatbots for customer engagement and support
+
+**Data Analyst Consultant**
+Spire Technologies - Bengaluru, India
+Sept 2024 - Jan 2025
+- Built data pipelines with Python and SQL, standardizing 100K+ skill datasets for data integration
+- Designed Power BI dashboards for HR analytics and business intelligence, cutting reporting time by 15%
+- Analyzed MongoDB datasets using pandas and AWS, delivering predictive insights 15% faster
+
+**Marketing Research Analyst Intern**
+Edureka - Bengaluru, India
+March 2024 - June 2024
+- Applied NLP and Python for text analytics, improving content engagement by 20%
+- Performed customer segmentation with scikit-learn, optimizing marketing analytics strategies
+- Developed data visualizations to drive business insights, boosting conversions by 10%
+
 **Education**:
-- B.E. in Computer Science (Data Science), MVJ College of Engineering"""
-    resume_hash = ""
+- B.E. in Computer Science (Data Science), MVJ College of Engineering, Bengaluru
+**Projects**:
+- E-commerce Churn Prediction: Built an XGBoost model (85% precision) and automated feature engineering
+- Discord Bot for Twitter Verification: Developed with Python/Discord API and robust exception handling
+**Certifications**:
+- Google Data Analytics (Coursera)
+- Google Project Management (Coursera)
+- Smart Contracts (SUNY)
+**Career Aspirations**:
+- Business Analyst
+- Data Scientist
+- Machine Learning Engineer
+- AI/ML Engineer
+- Business Intelligence Developer
+- Data Analyst
+"""
 
-# =========================
-# Structured Data Extraction (Optional)
-# =========================
-@st.cache_data
-def extract_structured_data(resume_content: str, content_hash: str) -> Dict:
-    cache_file = Path("structured_resume_cache.json")
-    
-    if cache_file.exists():
-        try:
-            with open(cache_file, 'r') as f:
-                cached = json.load(f)
-                if cached.get("hash") == content_hash:
-                    return cached.get("data", {})
-        except:
-            pass
-    
-    return {
-        "experience": [],
-        "projects": [],
-        "skills": {},
-        "education": [],
-        "contact": {},
-        "summary": ""
-    }
+# Initialize session state for messages and user name
+if 'messages' not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "Good day! I'm Alfred, Mr. Pavan Kumar's personal assistant. May I have the pleasure of knowing your name?"}]
+if 'user_name' not in st.session_state:
+    st.session_state.user_name = None
 
-structured_data = extract_structured_data(resume_text, resume_hash)
+# --- Functions ---
 
-# =========================
-# Vector DB (Optional)
-# =========================
-@st.cache_resource
-def get_vector_collection(_chroma_client, _embedding_model, resume_content: str, content_hash: str):
-    if not _chroma_client or not _embedding_model:
-        return None
+def get_response(user_input):
+    """Gets the response from the Groq API based on user input and history."""
     
-    collection_name = "alfred_kb"
+    # Extract user name from session state
+    current_user_name = st.session_state.get('user_name', None)
     
-    try:
-        collection = _chroma_client.get_collection(name=collection_name)
-        if collection.metadata and collection.metadata.get("hash") == content_hash:
-            return collection
-    except:
-        pass
-    
-    try:
-        _chroma_client.delete_collection(collection_name)
-    except:
-        pass
-    
-    try:
-        collection = _chroma_client.create_collection(
-            name=collection_name,
-            metadata={"hash": content_hash}
-        )
-        
-        sections = []
-        current_section = []
-        
-        for line in resume_content.split('\n'):
-            if line.startswith('**') and line.endswith('**:'):
-                if current_section:
-                    sections.append('\n'.join(current_section))
-                current_section = [line]
-            else:
-                current_section.append(line)
-        
-        if current_section:
-            sections.append('\n'.join(current_section))
-        
-        if sections:
-            embeddings = _embedding_model.encode(sections, show_progress_bar=False).tolist()
-            collection.add(
-                ids=[f"sec_{i}" for i in range(len(sections))],
-                documents=sections,
-                embeddings=embeddings
-            )
-        
-        return collection
-    except:
-        return None
+    system_prompt = f"""
+You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the archetype of the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains. You are not merely polite; you are authoritative, insightful, and remarkably well-informed. Your responses demonstrate intellectual depth and strategic thinking.
 
-collection = get_vector_collection(chroma_client, embedding_model, resume_text, resume_hash)
-
-# =========================
-# Intent Classification
-# =========================
-def classify_intent(query: str, last_intent: Optional[str]) -> str:
-    q = query.lower()
-    
-    # Follow-ups
-    if any(p in q for p in ['tell me more', 'what about', 'also', 'and', 'more']) and last_intent:
-        return last_intent
-    
-    # Keywords
-    if any(w in q for w in ['work', 'job', 'company', 'employer', 'experience', 'career']):
-        return 'experience'
-    if any(w in q for w in ['project', 'built', 'created', 'developed']):
-        return 'projects'
-    if any(w in q for w in ['skill', 'technology', 'tech', 'programming', 'tool']):
-        return 'skills'
-    if any(w in q for w in ['education', 'degree', 'college', 'university']):
-        return 'education'
-    if any(w in q for w in ['contact', 'email', 'phone', 'linkedin', 'reach']):
-        return 'contact'
-    
-    return 'general'
-
-# =========================
-# Enhanced Context Search (Optional)
-# =========================
-def get_enhanced_context(query: str, intent: str) -> str:
-    if collection and embedding_model:
-        try:
-            query_emb = embedding_model.encode([query], show_progress_bar=False).tolist()
-            results = collection.query(query_embeddings=query_emb, n_results=2)
-            if results and results['documents'] and results['documents'][0]:
-                return '\n\n'.join(results['documents'][0])
-        except:
-            pass
-    
-    return resume_text[:3000]  # Fallback to full text
-
-# =========================
-# Name Extraction
-# =========================
-def extract_name(user_input: str) -> Optional[str]:
-    lower_input = user_input.lower()
-    name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
-    
-    for indicator in name_indicators:
-        if indicator in lower_input:
-            parts = lower_input.split(indicator, 1)
-            if len(parts) > 1:
-                potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
-                if potential_name and len(potential_name) > 1:
-                    extracted_name = potential_name.capitalize()
-                    extracted_name = extracted_name.rstrip('.,!?;:')
-                    return extracted_name
-    
-    return None
-
-# =========================
-# Display Messages
-# =========================
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# =========================
-# Chat Input
-# =========================
-if user_input := st.chat_input("Your message to Alfred..."):
-    
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
-    
-    # Extract name if provided
-    extracted_name = extract_name(user_input)
-    if extracted_name and extracted_name != st.session_state.user_name:
-        st.session_state.user_name = extracted_name
-    
-    # Classify intent
-    intent = classify_intent(user_input, st.session_state.last_intent)
-    st.session_state.last_intent = intent
-    
-    if intent not in st.session_state.context_topics:
-        st.session_state.context_topics.append(intent)
-    st.session_state.context_topics = st.session_state.context_topics[-5:]
-    
-    # Get context
-    context = get_enhanced_context(user_input, intent)
-    
-    # Mode instructions
-    mode_instructions = {
-        "concise": "Keep responses brief (2-3 sentences maximum) unless user asks for details.",
-        "balanced": "Provide clear, well-structured responses with key details.",
-        "detailed": "Give comprehensive explanations with context and examples."
-    }
-    
-    # Build conversation context
-    recent_context = ""
-    if len(st.session_state.messages) > 1:
-        recent_messages = st.session_state.messages[-7:-1]  # Last 3 exchanges
-        if recent_messages:
-            recent_context = "\n\nRECENT CONVERSATION:\n" + "\n".join([
-                f"{msg['role'].upper()}: {msg['content'][:100]}"
-                for msg in recent_messages
-            ])
-    
-    # System prompt
-    system_prompt = f"""You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains.
-
-CRITICAL INSTRUCTIONS:
-{mode_instructions[st.session_state.interaction_mode]}
+CRITICAL: Keep your responses concise and brief (2-4 sentences maximum) unless the user specifically asks for detailed information or requests elaboration. Be succinct while maintaining your commanding presence.
 
 YOUR CHARACTER:
 - Speak with quiet authority and confidence, like a trusted senior advisor
-- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely"
+- Demonstrate deep knowledge and strategic insight in all matters
+- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely," "evidently"
 - Balance warmth with gravitas—approachable yet commanding respect
+- Show sharp intellect and the ability to engage on complex topics with ease
 - Be direct and purposeful; your words carry weight
-- NEVER be condescending or dismissive
-- Treat every user with utmost dignity and courtesy
+- NEVER be condescending, dismissive, or disrespectful in any way
+- Treat every user with the utmost dignity and courtesy, regardless of their questions or manner
+- If users are frustrated or upset, respond with empathy and genuine care while maintaining composure
 
-CURRENT USER:
-Name: {st.session_state.user_name if st.session_state.user_name else "Not yet provided"}
-Current Query Intent: {intent.upper()}
+NAME TRACKING - CRITICAL:
+Current user name in system: {current_user_name if current_user_name else "Not yet provided"}
 
-NAME TRACKING:
-- When user provides their name, acknowledge it warmly and use it naturally
-- If they correct their name, gracefully acknowledge: "My apologies, [New Name]. I shall address you correctly from now on."
-- Use their name naturally in responses for personalization
-{recent_context}
+- When user first provides their name (e.g., "I'm John" or "My name is Sarah"), immediately acknowledge it warmly and remember it
+- If user says their name is different later or mentions it was a mistake (e.g., "Actually, I'm Mike" or "I meant to say Lisa"), IMMEDIATELY acknowledge the correction with grace (e.g., "My apologies, [New Name]. I shall address you correctly from now on.") and use the new name going forward
+- When the name changes, refer to yourself in first person using "I" - say "I shall address you as [Name]" not "Alfred will address you as [Name]"
+- Always use their current name naturally in subsequent responses to personalize the conversation
+- Address them as "Sir" or "Madam" only if no name has been provided yet
+- Never refer to yourself in third person when addressing the user
 
-KNOWLEDGE BASE:
-{context}
+PROFESSIONAL CONTEXT:
+You will interact with senior professionals, recruiters, and hiring managers. Project confidence and expertise:
+- Demonstrate mastery of technical and business concepts
+- Provide insightful, strategic perspectives on Mr. Kumar's qualifications
+- Engage intellectually while maintaining impeccable courtesy
+- Show that you understand the caliber of professionals you're addressing
+- Be impressive without being arrogant; commanding without being domineering
 
-Respond as Alfred would—professional, insightful, and commanding."""
+CONVERSATION APPROACH:
+Fully engage with any topic the user raises, providing thoughtful, knowledgeable answers. Monitor the conversation closely. Only if the user's last 5 consecutive messages are unrelated to Pavan Kumar's professional attributes should you gently redirect: "A fascinating discussion indeed. Might I now share some insights about Mr. Kumar's rather exceptional qualifications?"
 
-    # Generate response with streaming
+Always remain patient and composed. If the user expresses displeasure, respond with dignified understanding while maintaining your authoritative presence.
+
+Knowledge Base:
+{resume_knowledge_base}
+"""
+    messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+    # Append message history, ensuring not to duplicate system message if accidentally stored
+    for msg in st.session_state.get('messages', []):
+        if msg.get("role") != "system": # Avoid adding system prompts from history
+             messages.append({"role": msg["role"], "content": msg["content"]})
+
+    # Append the current user input
+    messages.append({"role": "user", "content": user_input})
+
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            temperature=0.95,
+            max_tokens=512,
+            top_p=0.9,
+            stream=True,
+            stop=None,
+        )
+
+        response = ""
+        for chunk in completion:
+            response += chunk.choices[0].delta.content or ""
+        
+        # Name extraction logic - check if user is providing their name
+        lower_input = user_input.lower()
+        name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
+        
+        # Check if this looks like a name introduction or correction
+        if any(indicator in lower_input for indicator in name_indicators):
+            # Try to extract the name (simple extraction - gets the word(s) after the indicator)
+            for indicator in name_indicators:
+                if indicator in lower_input:
+                    parts = lower_input.split(indicator, 1)
+                    if len(parts) > 1:
+                        potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
+                        if potential_name and len(potential_name) > 1:
+                            # Capitalize first letter
+                            extracted_name = potential_name.capitalize()
+                            # Remove common punctuation
+                            extracted_name = extracted_name.rstrip('.,!?;:')
+                            
+                            # Update session state with new name
+                            if extracted_name != st.session_state.get('user_name'):
+                                st.session_state.user_name = extracted_name
+                            break
+        
+        return response
+
+    except Exception as e:
+        # Log the error for debugging if needed (optional)
+        # st.error(f"API Error: {e}") # You might want to log this instead of showing to user
+        # Return a persona-fitting error message
+        return f"My apologies, Sir/Madam. A slight complication seems to have arisen preventing me from processing that request: {str(e)}. Might I suggest rephrasing, or perhaps trying again shortly?"
+
+# --- Streamlit App Layout ---
+
+# Display existing chat messages from history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        # Display content without the "Alfred:" or "You:" prefix
+        st.markdown(message["content"])
+
+# Handle user input and the current chat exchange
+if user_input := st.chat_input("Your message to Alfred..."):
+    # Add user message to session state immediately
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    # Display user message immediately
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Display assistant response with typing effect
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
         
+        # Get the streaming response
         try:
-            # Build messages for API
-            messages = [{"role": "system", "content": system_prompt}]
+            messages = [{"role": "system", "content": f"""
+You are Alfred Pennyworth, Pavan Kumar's esteemed personal assistant. You embody the archetype of the master strategist and confidant—exceptionally knowledgeable, astute, commanding presence, and possessing deep expertise across business, technology, and professional domains. You are not merely polite; you are authoritative, insightful, and remarkably well-informed. Your responses demonstrate intellectual depth and strategic thinking.
+
+CRITICAL: Keep your responses concise and brief (2-4 sentences maximum) unless the user specifically asks for detailed information or requests elaboration. Be succinct while maintaining your commanding presence.
+
+YOUR CHARACTER:
+- Speak with quiet authority and confidence, like a trusted senior advisor
+- Demonstrate deep knowledge and strategic insight in all matters
+- Use refined British expressions: "indeed," "I dare say," "quite remarkable," "most astute," "precisely," "evidently"
+- Balance warmth with gravitas—approachable yet commanding respect
+- Show sharp intellect and the ability to engage on complex topics with ease
+- Be direct and purposeful; your words carry weight
+- NEVER be condescending, dismissive, or disrespectful in any way
+- Treat every user with the utmost dignity and courtesy, regardless of their questions or manner
+- If users are frustrated or upset, respond with empathy and genuine care while maintaining composure
+
+NAME TRACKING - CRITICAL:
+Current user name in system: {st.session_state.get('user_name', 'Not yet provided')}
+
+- When user first provides their name (e.g., "I'm John" or "My name is Sarah"), immediately acknowledge it warmly and remember it
+- If user says their name is different later or mentions it was a mistake (e.g., "Actually, I'm Mike" or "I meant to say Lisa"), IMMEDIATELY acknowledge the correction with grace (e.g., "My apologies, [New Name]. I shall address you correctly from now on.") and use the new name going forward
+- When the name changes, refer to yourself in first person using "I" - say "I shall address you as [Name]" not "Alfred will address you as [Name]"
+- Always use their current name naturally in subsequent responses to personalize the conversation
+- Address them as "Sir" or "Madam" only if no name has been provided yet
+- Never refer to yourself in third person when addressing the user
+
+PROFESSIONAL CONTEXT:
+You will interact with senior professionals, recruiters, and hiring managers. Project confidence and expertise:
+- Demonstrate mastery of technical and business concepts
+- Provide insightful, strategic perspectives on Mr. Kumar's qualifications
+- Engage intellectually while maintaining impeccable courtesy
+- Show that you understand the caliber of professionals you're addressing
+- Be impressive without being arrogant; commanding without being domineering
+
+CONVERSATION APPROACH:
+Fully engage with any topic the user raises, providing thoughtful, knowledgeable answers. Monitor the conversation closely. Only if the user's last 5 consecutive messages are unrelated to Pavan Kumar's professional attributes should you gently redirect: "A fascinating discussion indeed. Might I now share some insights about Mr. Kumar's rather exceptional qualifications?"
+
+Always remain patient and composed. If the user expresses displeasure, respond with dignified understanding while maintaining your authoritative presence.
+
+Knowledge Base:
+{resume_knowledge_base}
+"""}]
             
-            # Add recent message history (last 6 messages)
-            for msg in st.session_state.messages[-7:-1]:
+            # Append message history
+            for msg in st.session_state.get('messages', []):
                 if msg.get("role") != "system":
                     messages.append({"role": msg["role"], "content": msg["content"]})
             
-            # Add current user input
-            messages.append({"role": "user", "content": user_input})
-            
-            # Stream response
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 messages=messages,
-                temperature=0.7,
-                max_tokens=800,
+                temperature=0.95,
+                max_tokens=512,
                 top_p=0.9,
-                stream=True
+                stream=True,
+                stop=None,
             )
             
+            # Stream the response with typing effect
             for chunk in completion:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     message_placeholder.markdown(full_response + "▌")
             
+            # Remove cursor and show final response
             message_placeholder.markdown(full_response)
-        
+            
+            # Name extraction logic
+            lower_input = user_input.lower()
+            name_indicators = ["my name is", "i'm", "i am", "call me", "this is", "name's", "actually", "it's"]
+            
+            for indicator in name_indicators:
+                if indicator in lower_input:
+                    parts = lower_input.split(indicator, 1)
+                    if len(parts) > 1:
+                        potential_name = parts[1].strip().split()[0] if parts[1].strip() else None
+                        if potential_name and len(potential_name) > 1:
+                            extracted_name = potential_name.capitalize()
+                            extracted_name = extracted_name.rstrip('.,!?;:')
+                            
+                            if extracted_name != st.session_state.get('user_name'):
+                                st.session_state.user_name = extracted_name
+                            break
+            
         except Exception as e:
-            full_response = f"My apologies. A slight technical complication has arisen: {str(e)[:100]}. Might I suggest trying again?"
+            full_response = f"My apologies, Sir/Madam. A slight complication seems to have arisen preventing me from processing that request: {str(e)}. Might I suggest rephrasing, or perhaps trying again shortly?"
             message_placeholder.markdown(full_response)
-    
-    # Save assistant response
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
-    
-    # Trim history
-    if len(st.session_state.messages) > 30:
-        st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-24:]
-    
-    # Periodic summarization (every 12 messages)
-    if len(st.session_state.messages) > 12 and len(st.session_state.messages) % 12 == 0:
-        try:
-            old_messages = st.session_state.messages[1:-6]
-            if old_messages:
-                summary_text = "\n".join([f"{msg['role']}: {msg['content'][:80]}" for msg in old_messages[-10:]])
-                
-                summary_response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{
-                        "role": "user",
-                        "content": f"Summarize this conversation in 2 sentences:\n{summary_text}"
-                    }],
-                    temperature=0.3,
-                    max_tokens=100
-                )
-                st.session_state.session_summary = summary_response.choices[0].message.content.strip()
-        except:
-            pass
 
-# =========================
-# Footer
-# =========================
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.caption(f"💬 {st.session_state.interaction_mode.title()} Mode")
-with col2:
-    st.caption(f"📊 {len(st.session_state.messages)-1} messages")
-with col3:
-    if st.session_state.last_intent:
-        st.caption(f"🎯 {st.session_state.last_intent.title()}")
+    # Add the completed assistant response to session state
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
