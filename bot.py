@@ -92,7 +92,7 @@ def get_response(user_input):
     # Count user messages to determine when to refresh résumé
     user_message_count = len([m for m in st.session_state.messages if m["role"] == "user"])
 
-    # Inject full résumé context every 5 prompts
+    # Inject full résumé context every 5 prompts for better memory
     if user_message_count % 5 == 0 and user_message_count != 0:
         messages.insert(1, {"role": "system", "content": f"Full résumé reference:\n{resume_knowledge_base}"})
 
