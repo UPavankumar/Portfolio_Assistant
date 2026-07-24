@@ -74,8 +74,8 @@ Rules:
 4. Use résumé context only when relevant.
 
 Résumé Summary Context:
-Mr. Pavan Kumar — AI Engineer / AI Automation Engineer skilled in Python, SQL, LLMs, AI agents, Voice AI (Groq LLaMA, Whisper), Power BI, RPA, and enterprise automation.
-Currently at Envision Beyond, where he built a multi-tenant e-Invoicing platform processing 2,000+ documents/month and real-time Voice AI systems. Prior roles in analytics and research.
+Mr. Pavan Kumar — Business Analyst specializing in AI automation, skilled in Python, SQL, LLMs, AI agents, Voice AI (Groq LLaMA, Whisper), Power BI, RPA, and enterprise automation.
+Business Analyst at Envision Beyond since Oct 2025 (double-promoted from trainee), where he built a multi-tenant e-Invoicing platform processing 2,000+ documents/month and real-time Voice AI systems. Prior roles in analytics and research.
 """
 
 # --- RESPONSE FUNCTION ---

@@ -2,7 +2,7 @@
 
 ## Personal Information
 - **Name:** Pavan Kumar
-- **Title:** AI Engineer — AI Automation Engineer
+- **Title:** Business Analyst (AI Automation)
 - **Location:** Bengaluru, India
 - **Contact:** +91-8050737339 | pavan.aidev@gmail.com
 - **LinkedIn:** linkedin.com/in/u-pavankumar
@@ -12,7 +12,7 @@
 - **Work Preference:** Open to remote, hybrid, or on-site roles
 
 ## Professional Summary
-AI Engineer with hands-on experience building enterprise AI applications, AI agents, real-time Voice AI systems, and workflow automation platforms. Developed production-ready solutions integrating Groq LLaMA, Whisper, Microsoft Graph API, Google Workspace APIs, PostgreSQL, and Odoo CRM — including a multi-tenant e-Invoicing platform processing 2,000+ documents/month. Strong in Python, SQL, Prompt Engineering, API integration, and enterprise automation.
+Business Analyst with hands-on experience building enterprise AI applications, AI agents, real-time Voice AI systems, and workflow automation platforms. Developed production-ready solutions integrating Groq LLaMA, Whisper, Microsoft Graph API, Google Workspace APIs, PostgreSQL, and Odoo CRM — including a multi-tenant e-Invoicing platform processing 2,000+ documents/month. Strong in Python, SQL, Prompt Engineering, API integration, and enterprise automation.
 
 ## Technical Skills
 - **Languages:** Python, SQL (also R, Flutter)
@@ -26,13 +26,13 @@ AI Engineer with hands-on experience building enterprise AI applications, AI age
 
 ## Work Experience
 
-### AI Engineer — Envision Beyond, Bengaluru (June 2025 – Present)
+### Business Analyst — Envision Beyond, Bengaluru (Oct 2025 – Present)
+- Joined as Business Analyst Trainee (internship, Jun – Oct 2025); double-promoted to Business Analyst, skipping a level, for exceptional performance.
 - Built enterprise AI applications that eliminated manual workflows across invoice processing, sales automation, and customer support.
 - Led development of a multi-tenant e-Invoicing automation platform processing 2,000+ financial documents/month (extraction, validation, transformation, regulatory submission).
 - Engineered end-to-end automation integrating Microsoft Graph API, PostgreSQL, and Odoo CRM for email ingestion, lead management, and customer data sync.
 - Owned digital marketing, SEO, and content strategy — qualified inbound leads within 30 days, first-page Google rankings within 2 months.
 - Developed SQL-backed Power BI dashboards tracking operational KPIs.
-- Double-promoted within 4 months (skipping a level) for exceptional performance.
 
 ### Data Analyst Consultant — Spire Technologies, Bengaluru (Sept 2024 – Jan 2025)
 - Built Python–SQL data pipelines processing 100K+ records, improving data quality and downstream analytics.
