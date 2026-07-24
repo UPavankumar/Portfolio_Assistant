@@ -1,149 +1,81 @@
 # Pavan Kumar — Professional Knowledge Base
 
 ## Personal Information
-- **Name:** Pavan Kumar  
-- **Location:** Bengaluru, India  
-- **Contact:** +91-8050737339 | u.pavankumar2002@gmail.com  
-- **LinkedIn:** [linkedin.com/in/u-pavankumar](https://linkedin.com/in/u-pavankumar)  
-- **Portfolio:** [portfolio-u-pavankumar.web.app](https://portfolio-u-pavankumar.web.app)  
-- **Relocation:** Fully flexible within India (no assistance required)  
-- **Work Preference:** Open to remote, hybrid, or on-site roles  
-- **Availability:** Immediate  
-
----
+- **Name:** Pavan Kumar
+- **Title:** AI Engineer — AI Automation Engineer
+- **Location:** Bengaluru, India
+- **Contact:** +91-8050737339 | pavan.aidev@gmail.com
+- **LinkedIn:** linkedin.com/in/u-pavankumar
+- **GitHub:** github.com/UPavankumar
+- **Portfolio:** portfolio-u-pavan-kumar.web.app
+- **Relocation:** Fully flexible within India (no assistance required)
+- **Work Preference:** Open to remote, hybrid, or on-site roles
 
 ## Professional Summary
-Business Analyst and Data Professional specializing in **AI automation**, **workflow integration**, **data analytics**, and **database management**.  
-Proficient in **Python, SQL, Power BI, IBM Watsonx, RPA**, and **full-stack development**.  
-Recognized for delivering intelligent automation solutions, scalable data pipelines, and high-impact dashboards that drive business growth.
-
----
+AI Engineer with hands-on experience building enterprise AI applications, AI agents, real-time Voice AI systems, and workflow automation platforms. Developed production-ready solutions integrating Groq LLaMA, Whisper, Microsoft Graph API, Google Workspace APIs, PostgreSQL, and Odoo CRM — including a multi-tenant e-Invoicing platform processing 2,000+ documents/month. Strong in Python, SQL, Prompt Engineering, API integration, and enterprise automation.
 
 ## Technical Skills
-
-### Programming
-- Python, SQL, R, Flutter
-
-### AI & Automation
-- IBM Watsonx Code Assistant, IBM RPA, UIPath, N8n
-
-### Machine Learning
-- Scikit-learn, TensorFlow, PyTorch
-
-### Data Visualization
-- Power BI, Tableau
-
-### Data Analysis
-- Pandas, NumPy, Matplotlib, Seaborn
-
-### Integrations & Databases
-- IBM API Connect, PostgreSQL, MongoDB, AWS
-
-### Chatbot & Workflow Tools
-- Tawk Chat Portal, AI-powered bots, workflow automation pipelines
-
----
+- **Languages:** Python, SQL (also R, Flutter)
+- **AI:** LLMs, AI Agents, Prompt Engineering, RAG, Voice AI, Groq LLaMA, Whisper
+- **Frameworks & Libraries:** Pipecat, Streamlit, Pandas, NumPy, OpenPyXL, python-docx, scikit-learn, TensorFlow, PyTorch
+- **Enterprise APIs:** Microsoft Graph API, Google Drive API, Google Sheets API, REST APIs, OAuth 2.0, IBM API Connect
+- **Automation/RPA:** IBM Watsonx Code Assistant, IBM RPA, UIPath, N8n
+- **Cloud & Databases:** PostgreSQL, MongoDB, MySQL, AWS (EC2, S3), IBM Cloud, Odoo CRM
+- **Data Engineering:** ETL pipelines, PDF/Excel → JSON, schema mapping, data validation, workflow automation
+- **Visualization & Tools:** Power BI, Tableau, Git
 
 ## Work Experience
 
-### **Business Analyst — Envision Beyond**  
-**Location:** Bengaluru, India (Hybrid)  
-**Duration:** Oct 2025 – Present  
-**Previous Role:** Business Analyst Trainee (Jun 2025 – Oct 2025)  
-**Promotion:** Double-promoted to Analyst, skipping Associate level for exceptional performance.  
+### AI Engineer — Envision Beyond, Bengaluru (June 2025 – Present)
+- Built enterprise AI applications that eliminated manual workflows across invoice processing, sales automation, and customer support.
+- Led development of a multi-tenant e-Invoicing automation platform processing 2,000+ financial documents/month (extraction, validation, transformation, regulatory submission).
+- Engineered end-to-end automation integrating Microsoft Graph API, PostgreSQL, and Odoo CRM for email ingestion, lead management, and customer data sync.
+- Owned digital marketing, SEO, and content strategy — qualified inbound leads within 30 days, first-page Google rankings within 2 months.
+- Developed SQL-backed Power BI dashboards tracking operational KPIs.
+- Double-promoted within 4 months (skipping a level) for exceptional performance.
 
-#### **AI & Automation**
-- Leveraged IBM Watsonx Code Assistant for intelligent code generation and workflow acceleration.  
-- Migrated enterprise workflows from UIPath to IBM RPA, improving automation efficiency.  
-- Designed and deployed APIs using IBM API Connect for cross-platform integration.
+### Data Analyst Consultant — Spire Technologies, Bengaluru (Sept 2024 – Jan 2025)
+- Built Python–SQL data pipelines processing 100K+ records, improving data quality and downstream analytics.
+- Developed Power BI dashboards for recruitment analytics, reducing reporting turnaround by 15%.
+- Optimized MongoDB workflows using Python and AWS.
 
-#### **Database & Application Development**
-- Managed and optimized PostgreSQL databases for production-scale applications.  
-- Developed the Software and full-stack login system using the Flutter framework.
-
-#### **Workflow & Integration**
-- Automated ticket extraction and inbound lead management using **N8n**.  
-- Built **Tawk Chat Portal** integration with AI-powered live chat support.  
-- Implemented **AI-based appointment booking systems** and customer chatbots for engagement and support.
-
----
-
-### **Data Analyst Consultant — Spire Technologies**  
-**Location:** Bengaluru, India  
-**Duration:** Sept 2024 – Jan 2025  
-
-- Built **data pipelines** with Python and SQL to standardize 100K+ skill datasets for analytics integration.  
-- Designed **Power BI dashboards** for HR and workforce analytics, reducing reporting time by 15%.  
-- Conducted MongoDB-based data analysis using pandas and AWS, delivering predictive insights 15% faster.
-
----
-
-### **Marketing Research Analyst Intern — Edureka**  
-**Location:** Bengaluru, India  
-**Duration:** Mar 2024 – Jun 2024  
-
-- Applied **NLP and text analytics** to improve marketing content engagement by 20%.  
-- Conducted **customer segmentation** using scikit-learn to refine marketing strategies.  
-- Created interactive **data visualizations** that increased conversion insights by 10%.
-
----
-
-## Education
-- **Bachelor of Engineering (B.E.) in Computer Science (Data Science)**  
-  *MVJ College of Engineering, Bengaluru*
-
----
+### Marketing Research Analyst Intern — Edureka, Bengaluru (Mar 2024 – Jun 2024)
+- Applied NLP and text analytics to improve marketing content engagement by 20%.
+- Customer segmentation with scikit-learn; interactive visualizations that improved conversion insights by 10%.
 
 ## Projects
 
-### **E-Commerce Customer Churn Prediction**
-- Developed an **XGBoost model** achieving 85% precision for churn prediction.  
-- Automated feature engineering and handled class imbalance with stratified sampling.  
-- Designed business retention strategies using customer segmentation and K-Means clustering.
+### Aria — Real-Time Voice AI Assistant (Python, Pipecat, WebRTC, Groq, Whisper, ElevenLabs)
+Low-latency conversational Voice AI with intelligent interruption handling, dynamic knowledge-base integration, domain-specific speech recognition, and resilient provider failover.
 
-### **Discord Bot for Twitter Verification**
-- Built a bot integrating **Discord API and Python** for automated verification workflows.  
-- Implemented robust exception handling and logging for reliability.  
-- Managed user state and API rate limits effectively to ensure seamless automation.
+### AI Lead Generation & Sales Automation Agent (Python, Microsoft Graph API, Groq LLaMA, PostgreSQL)
+Automates inbound email processing, company research, personalized email generation, Outlook draft creation, and response tracking.
 
----
+### Automated Multi-Tenant e-Invoice Processing Pipeline (Python, Microsoft Graph API, OAuth 2.0, REST)
+Enterprise ETL platform for invoices, credit notes, and debit notes across multiple tenants, with Malaysian LHDN e-Invoice compliance.
+
+### AI Content Generation & SEO Automation Platform (Python, Google Workspace APIs, python-docx)
+Prompt-engineered content generation gated by deterministic validation, with automated document assembly, Google Drive publishing, and Sheets sync.
+
+### E-Commerce Customer Churn Prediction
+XGBoost model with 85% precision; K-Means segmentation for retention strategy.
+
+### Discord Bot for Twitter Verification
+Discord API + Python automated verification workflow with rate-limit handling.
+
+## Education
+- B.E. in Computer Science (Data Science), MVJ College of Engineering, Bengaluru (2020–2024), CGPA 7.73
 
 ## Certifications
-- **Google Data Analytics (Coursera)**  
-- **Google Project Management (Coursera)**  
-- **Smart Contracts (SUNY University)**  
-
----
-
-## Tools & Platforms
-- **Languages:** Python, SQL, R, Flutter  
-- **Libraries:** Pandas, NumPy, Matplotlib, Seaborn, scikit-learn, TensorFlow, PyTorch  
-- **Visualization:** Power BI, Tableau  
-- **Automation:** UIPath, IBM RPA, IBM Watsonx, N8n  
-- **Databases:** PostgreSQL, MongoDB, MySQL  
-- **Cloud:** AWS, IBM Cloud  
-- **Other:** IBM API Connect, Git, Streamlit, Jupyter, Excel  
-
----
+- Google Data Analytics (Coursera)
+- Google Project Management (Coursera)
+- Smart Contracts (SUNY University)
+- HackerRank: Python & Problem Solving
 
 ## Career Aspirations
-Aiming to advance into roles that merge **data intelligence with automation**, including:  
-- Business Analyst  
-- Data Scientist  
-- Machine Learning Engineer  
-- AI/ML Engineer  
-- Business Intelligence Developer  
-- Data Analyst  
-
----
+Roles merging data intelligence with automation: AI Engineer, AI/ML Engineer, Machine Learning Engineer, Data Scientist, Business Intelligence Developer.
 
 ## Notable Achievements
-- **Double Promotion** at Envision Beyond within 4 months for high-impact automation delivery.  
-- Reduced manual workload through AI-driven RPA and Python-based automation.  
-- Delivered multiple dashboards and analytical insights that enhanced executive decision-making speed by over 20%.
-
----
-
-## Summary for Recruiters
-Pavan Kumar brings an uncommon blend of **technical expertise**, **business acumen**, and **AI automation skill**.  
-His ability to translate data into decisions and automate repetitive workflows positions him as a next-generation **AI-driven Business Analyst** ready to lead data initiatives from strategy to implementation.
+- Double promotion at Envision Beyond within 4 months for high-impact automation delivery.
+- 2,000+ financial documents/month processed by systems he built.
+- Dashboards and analytics that sped up executive decision-making by over 20%.
