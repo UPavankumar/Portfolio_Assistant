@@ -136,21 +136,28 @@ def create_completion(client: Groq, messages: list[dict], **kwargs):
 
 
 @st.cache_data(show_spinner=False)
-def suggest_questions(profile_text: str, count: int) -> list[str]:
-    """Generate starter questions from the profile; cached until the profile changes."""
-    try:
-        completion = create_completion(
-            get_client(),
-            [{"role": "user", "content": SUGGESTIONS_PROMPT.format(count=count, profile=profile_text)}],
-            temperature=0.5,
-            max_tokens=200,
-        )
-    except Exception:
-        log.exception("Could not generate suggested questions")
-        return []
+def generate_questions(profile_text: str, count: int) -> list[str]:
+    """Generate starter questions from the profile; cached until the profile changes.
+
+    Failures raise rather than return, so a transient error is retried instead of cached.
+    """
+    completion = create_completion(
+        get_client(),
+        [{"role": "user", "content": SUGGESTIONS_PROMPT.format(count=count, profile=profile_text)}],
+        temperature=0.5,
+        max_tokens=200,
+    )
     lines = (completion.choices[0].message.content or "").splitlines()
     questions = [re.sub(r"^[\s\d.)*•-]+", "", line).strip() for line in lines]
     return [q for q in questions if q.endswith("?")][:count]
+
+
+def suggest_questions(profile_text: str, count: int) -> list[str]:
+    try:
+        return generate_questions(profile_text, count)
+    except Exception:
+        log.exception("Could not generate suggested questions")
+        return []
 
 
 def build_messages(profile: Profile) -> list[dict]:
@@ -237,8 +244,8 @@ def main() -> None:
                 if st.button(question, key=f"suggestion_{i}"):
                     prompt = question
 
-    if prompt:
-        st.session_state.messages.append({"role": "user", "content": prompt.strip()})
+    if prompt := (prompt or "").strip():
+        st.session_state.messages.append({"role": "user", "content": prompt})
         st.rerun()  # Re-render so the question appears in the history and suggestions disappear.
 
     if st.session_state.messages[-1]["role"] == "user":
